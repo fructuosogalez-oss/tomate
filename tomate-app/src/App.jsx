@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import Dashboard    from './pages/Dashboard'
 import Workout      from './pages/Workout'
 import WorkoutLogger from './pages/WorkoutLogger'
@@ -9,7 +9,7 @@ import Settings     from './pages/Settings'
 
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <HashRouter>
       <Routes>
         <Route path="/"             element={<Dashboard />} />
         <Route path="/workout"      element={<Workout />} />
@@ -19,6 +19,6 @@ export default function App() {
         <Route path="/progress"     element={<Progress />} />
         <Route path="/settings"     element={<Settings />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
