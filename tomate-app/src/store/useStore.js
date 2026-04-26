@@ -25,6 +25,19 @@ export const useStore = create(
       setProfile: (updates) =>
         set((s) => ({ profile: { ...s.profile, ...updates } })),
 
+      // ── Voice & AI Coach ───────────────────────────────────────────────────
+      voice: {
+        enabled:        false,
+        elevenlabsKey:  '',
+        voiceId:        'QjreVJyDygkOqCMjZyDF',
+        claudeKey:      '',
+        sttLang:        'es-ES',
+        ttsModel:       'eleven_flash_v2_5',
+        claudeModel:    'claude-haiku-4-5',
+      },
+      setVoice: (updates) =>
+        set((s) => ({ voice: { ...s.voice, ...updates } })),
+
       // ── Daily Check-in ─────────────────────────────────────────────────────
       checkins: {},  // { 'YYYY-MM-DD': { fatigue: 1-5, workDemand: 1-5, sleep: 1-5, note: '' } }
       saveCheckin: (date, data) =>
