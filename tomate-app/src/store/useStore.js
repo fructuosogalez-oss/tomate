@@ -10,9 +10,12 @@ export const useStore = create(
       profile: {
         name: '',
         age: '',
-        weight: '',      // kg
-        height: '',      // cm
-        goal: 'fat_loss', // fat_loss | muscle | recomp | endurance
+        units: 'imperial', // 'imperial' (lbs, ft/in) | 'metric' (kg, cm)
+        weight: '',        // value in user's chosen unit
+        height: '',        // cm — used only when units === 'metric'
+        heightFt: '',      // imperial feet
+        heightIn: '',      // imperial inches
+        goal: 'fat_loss',  // fat_loss | muscle | recomp | endurance
         activityLevel: 'moderate', // sedentary | light | moderate | active | very_active
         trainingDays: 4,
         calorieTarget: 0,

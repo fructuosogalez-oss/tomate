@@ -7,12 +7,14 @@ import {
 import RestTimer from '../components/RestTimer'
 import Button from '../components/Button'
 import { useStore } from '../store/useStore'
+import { weightUnit } from '../utils/units'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 
 export default function WorkoutLogger() {
   const navigate = useNavigate()
-  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, sessions } = useStore()
+  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, sessions, profile } = useStore()
+  const wUnit = weightUnit(profile).toUpperCase()
   const [showTimer, setShowTimer] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [showFinish, setShowFinish] = useState(false)
@@ -148,6 +150,7 @@ export default function WorkoutLogger() {
             onRemoveSet={removeSet}
             onRemoveEx={removeExercise}
             onTimerOpen={() => setShowTimer(true)}
+            weightLabel={wUnit}
           />
         ))}
 
@@ -193,7 +196,7 @@ export default function WorkoutLogger() {
   )
 }
 
-function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, onRemoveSet, onRemoveEx, onTimerOpen }) {
+function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, onRemoveSet, onRemoveEx, onTimerOpen, weightLabel = 'KG' }) {
   const doneSets = ex.sets.filter((s) => s.done).length
 
   return (
@@ -219,7 +222,7 @@ function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, on
           {/* Set headers */}
           <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem] gap-2 mb-2">
             <span className="text-[10px] text-zinc-600 text-center">SET</span>
-            <span className="text-[10px] text-zinc-600 text-center">KG</span>
+            <span className="text-[10px] text-zinc-600 text-center">{weightLabel}</span>
             <span className="text-[10px] text-zinc-600 text-center">REPS</span>
             <span />
           </div>

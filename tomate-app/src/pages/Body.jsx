@@ -5,14 +5,18 @@ import Layout from '../components/Layout'
 import Button from '../components/Button'
 import Input from '../components/Input'
 import { useStore } from '../store/useStore'
+import { weightUnit, isImperial } from '../utils/units'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default function Body() {
-  const { bodyLogs, addBodyLog, deleteBodyLog } = useStore()
+  const { bodyLogs, addBodyLog, deleteBodyLog, profile } = useStore()
   const [showLog, setShowLog] = useState(false)
   const [form, setForm] = useState({ date: today(), weight: '', waist: '', bodyFat: '', note: '' })
+
+  const wUnit = weightUnit(profile)
+  const lengthUnit = isImperial(profile) ? 'in' : 'cm'
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -24,8 +28,8 @@ export default function Body() {
   }
 
   const sorted = [...bodyLogs].sort((a, b) => a.date.localeCompare(b.date))
-  const weightData = sorted.filter((l) => l.weight).map((l) => ({ date: l.date.slice(5), weight: l.weight }))
-  const waistData  = sorted.filter((l) => l.waist).map((l) => ({ date: l.date.slice(5), waist: l.waist }))
+  const weightData = sorted.filter((l) => l.weight).map((l) => ({ date: l.date.slice(5), weight: l.weight, unit: wUnit }))
+  const waistData  = sorted.filter((l) => l.waist).map((l) => ({ date: l.date.slice(5), waist: l.waist, unit: lengthUnit }))
 
   const latest    = bodyLogs[0] || null
   const previous  = bodyLogs[1] || null
@@ -45,8 +49,8 @@ export default function Body() {
         <div className="bg-surface-card rounded-2xl p-4 mb-4">
           <p className="text-xs text-zinc-500 mb-3">Latest — {latest.date}</p>
           <div className="grid grid-cols-3 gap-4">
-            <Metric label="Weight" value={latest.weight} unit="kg" diff={weightDiff} />
-            <Metric label="Waist" value={latest.waist} unit="cm" />
+            <Metric label="Weight" value={latest.weight} unit={wUnit} diff={weightDiff} />
+            <Metric label="Waist" value={latest.waist} unit={lengthUnit} />
             <Metric label="Body Fat" value={latest.bodyFat} unit="%" />
           </div>
           {latest.note && <p className="text-xs text-zinc-500 mt-3 italic">{latest.note}</p>}
@@ -108,8 +112,8 @@ export default function Body() {
                 <div>
                   <p className="text-xs text-zinc-500">{log.date}</p>
                   <div className="flex gap-3 mt-0.5">
-                    {log.weight && <span className="text-sm font-semibold text-white">{log.weight} kg</span>}
-                    {log.waist  && <span className="text-sm text-zinc-400">{log.waist} cm</span>}
+                    {log.weight && <span className="text-sm font-semibold text-white">{log.weight} {wUnit}</span>}
+                    {log.waist  && <span className="text-sm text-zinc-400">{log.waist} {lengthUnit}</span>}
                     {log.bodyFat && <span className="text-sm text-zinc-400">{log.bodyFat}%</span>}
                   </div>
                 </div>
@@ -130,8 +134,8 @@ export default function Body() {
             <div className="space-y-3">
               <Input label="Date" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
               <div className="grid grid-cols-3 gap-3">
-                <Input label="Weight (kg)" type="number" placeholder="80.5" value={form.weight} onChange={(e) => set('weight', e.target.value)} inputMode="decimal" />
-                <Input label="Waist (cm)" type="number" placeholder="85" value={form.waist} onChange={(e) => set('waist', e.target.value)} inputMode="decimal" />
+                <Input label={`Weight (${wUnit})`} type="number" placeholder={isImperial(profile) ? '180' : '80'} value={form.weight} onChange={(e) => set('weight', e.target.value)} inputMode="decimal" />
+                <Input label={`Waist (${lengthUnit})`} type="number" placeholder={isImperial(profile) ? '34' : '85'} value={form.waist} onChange={(e) => set('waist', e.target.value)} inputMode="decimal" />
                 <Input label="Body Fat %" type="number" placeholder="18" value={form.bodyFat} onChange={(e) => set('bodyFat', e.target.value)} inputMode="decimal" />
               </div>
               <Input label="Notes" placeholder="How you're feeling..." value={form.note} onChange={(e) => set('note', e.target.value)} />
