@@ -7,6 +7,7 @@ import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import { useStore } from '../store/useStore'
 import { getDailyRecommendation, getMotivationalMessage, getWeeklyStats, getStreak, calcTargets } from '../utils/coach'
+import { weightUnit } from '../utils/units'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const dayName = () => new Date().toLocaleDateString('en-US', { weekday: 'long' })
@@ -87,7 +88,7 @@ export default function Dashboard() {
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <StatCard label="This Week" value={thisWeekCount} unit="sessions" sub={`${streak} day streak`} />
-        <StatCard label="Body Weight" value={latestBody?.weight} unit="kg" sub={latestBody ? latestBody.date : 'Not logged yet'} />
+        <StatCard label="Body Weight" value={latestBody?.weight} unit={weightUnit(profile)} sub={latestBody ? latestBody.date : 'Not logged yet'} />
         <StatCard
           label="Calories Today"
           value={todayNutrition.calories || 0}

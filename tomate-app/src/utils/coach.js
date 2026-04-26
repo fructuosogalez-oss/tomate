@@ -1,4 +1,5 @@
 // Coach engine — produces daily recommendations based on check-in data
+import { getMetricWeight, getMetricHeight } from './units'
 
 export const GOALS = {
   fat_loss: { label: 'Fat Loss',      emoji: '🔥' },
@@ -27,28 +28,31 @@ export function calcTDEE(weight, height, age, activityLevel, sex = 'm') {
 }
 
 export function calcTargets(profile) {
-  const { weight, height, age, activityLevel, goal } = profile
-  if (!weight || !height || !age) return { calories: 2000, protein: 150 }
+  const { age, activityLevel, goal } = profile
+  const weightKg = getMetricWeight(profile)
+  const heightCm = getMetricHeight(profile)
 
-  const tdee = calcTDEE(Number(weight), Number(height), Number(age), activityLevel)
+  if (!weightKg || !heightCm || !age) return { calories: 2000, protein: 150 }
+
+  const tdee = calcTDEE(weightKg, heightCm, Number(age), activityLevel)
   let calories = tdee
-  let protein  = Math.round(Number(weight) * 2.0) // 2g/kg baseline
+  let protein  = Math.round(weightKg * 2.0) // 2g/kg baseline
 
   if (goal === 'fat_loss') {
     calories = tdee - 400
-    protein  = Math.round(Number(weight) * 2.2)
+    protein  = Math.round(weightKg * 2.2)
   } else if (goal === 'muscle') {
     calories = tdee + 250
-    protein  = Math.round(Number(weight) * 2.0)
+    protein  = Math.round(weightKg * 2.0)
   } else if (goal === 'recomp') {
     calories = tdee - 100
-    protein  = Math.round(Number(weight) * 2.4)
+    protein  = Math.round(weightKg * 2.4)
   } else if (goal === 'endurance') {
     calories = tdee + 100
-    protein  = Math.round(Number(weight) * 1.6)
+    protein  = Math.round(weightKg * 1.6)
   }
 
-  return { calories: Math.max(1200, calories), protein }
+  return { calories: Math.max(1200, Math.round(calories)), protein }
 }
 
 // Returns a coach recommendation object based on check-in
