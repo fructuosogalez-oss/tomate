@@ -2,18 +2,22 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Timer, Plus, Trash2, Check, X, ChevronDown, ChevronUp,
-  ArrowLeft, CheckCircle2, Dumbbell
+  ArrowLeft, CheckCircle2, Dumbbell, Mic, MicOff, Loader2
 } from 'lucide-react'
 import RestTimer from '../components/RestTimer'
 import Button from '../components/Button'
 import { useStore } from '../store/useStore'
 import { weightUnit } from '../utils/units'
+import {
+  SpeechRecognizer, isSTTSupported, askCoach, speak,
+  buildCoachSystem, parseCoachReply, applyUpdates,
+} from '../utils/voice'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 
 export default function WorkoutLogger() {
   const navigate = useNavigate()
-  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, sessions, profile } = useStore()
+  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, sessions, profile, voice } = useStore()
   const wUnit = weightUnit(profile).toUpperCase()
   const [showTimer, setShowTimer] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -22,6 +26,17 @@ export default function WorkoutLogger() {
   const [expandedEx, setExpandedEx] = useState(null)
   const [showAddEx, setShowAddEx] = useState(false)
   const intervalRef = useRef(null)
+
+  // ── Voice state ─────────────────────────────────────────────────────────
+  const [voicePanel, setVoicePanel] = useState(null) // null | 'listening' | 'thinking' | 'speaking' | 'error'
+  const [transcript,  setTranscript]  = useState('')
+  const [coachReply,  setCoachReply]  = useState('')
+  const [voiceError,  setVoiceError]  = useState('')
+  const [conversation, setConversation] = useState([])  // [{role, content}]
+  const recognizerRef = useRef(null)
+  const audioRef = useRef(null)
+
+  const voiceReady = voice?.enabled && voice?.elevenlabsKey && voice?.voiceId && voice?.claudeKey && isSTTSupported()
 
   useEffect(() => {
     if (!activeWorkout) return
@@ -107,6 +122,96 @@ export default function WorkoutLogger() {
     navigate('/workout')
   }
 
+  // ── Voice flow ──────────────────────────────────────────────────────────
+  const startListening = () => {
+    if (!voiceReady) {
+      setVoiceError('Voice coach not configured. Open Settings → Voice Coach.')
+      setVoicePanel('error')
+      return
+    }
+    setTranscript('')
+    setCoachReply('')
+    setVoiceError('')
+    setVoicePanel('listening')
+
+    let finalText = ''
+    try {
+      const rec = new SpeechRecognizer({
+        lang: voice.sttLang || 'es-ES',
+        onPartial: (t) => setTranscript((prev) => (finalText + ' ' + t).trim()),
+        onFinal:   (t) => { finalText = (finalText + ' ' + t).trim(); setTranscript(finalText) },
+        onError:   (e) => { setVoiceError(`Mic error: ${e}`); setVoicePanel('error') },
+        onEnd:     () => { if (finalText.trim()) sendToCoach(finalText.trim()) ; else if (voicePanel === 'listening') setVoicePanel(null) },
+      })
+      recognizerRef.current = rec
+      rec.start()
+    } catch (e) {
+      setVoiceError(e.message || 'Could not start microphone')
+      setVoicePanel('error')
+    }
+  }
+
+  const stopListening = () => {
+    recognizerRef.current?.stop()
+  }
+
+  const sendToCoach = async (text) => {
+    setVoicePanel('thinking')
+    try {
+      const system = buildCoachSystem({ profile, weightUnit: wUnit.toLowerCase() })
+      const exerciseSummary = activeWorkout.exercises.map((ex, i) => {
+        const done = ex.sets.filter((s) => s.done)
+        return `${i + 1}. ${ex.name} (${done.length}/${ex.sets.length} sets done${done.length ? ', last: ' + done[done.length-1].weight + wUnit + '×' + done[done.length-1].reps : ''})`
+      }).join('\n')
+
+      const userMessage = `Workout: ${activeWorkout.planDayName}\nProgress:\n${exerciseSummary}\n\nUser said: "${text}"`
+      const newConversation = [...conversation, { role: 'user', content: userMessage }]
+
+      const { text: reply } = await askCoach({
+        apiKey: voice.claudeKey,
+        model:  voice.claudeModel || 'claude-haiku-4-5',
+        system,
+        messages: newConversation.slice(-6),
+      })
+
+      const { updates, say } = parseCoachReply(reply)
+
+      // Apply structured updates to the workout
+      if (updates.length) {
+        const { exercises: nextEx, applied } = applyUpdates(activeWorkout.exercises, updates)
+        if (applied.length) updateActiveWorkout({ exercises: nextEx })
+      }
+
+      setCoachReply(say)
+      setConversation([...newConversation, { role: 'assistant', content: reply }])
+
+      // Speak the reply
+      setVoicePanel('speaking')
+      try {
+        const audio = await speak(say, {
+          apiKey:  voice.elevenlabsKey,
+          voiceId: voice.voiceId,
+          model:   voice.ttsModel || 'eleven_flash_v2_5',
+        })
+        audioRef.current = audio
+        audio.onended = () => setVoicePanel(null)
+      } catch (e) {
+        setVoiceError(`Voice playback: ${e.message}`)
+        setVoicePanel('error')
+      }
+    } catch (e) {
+      setVoiceError(e.message || 'Coach failed to respond')
+      setVoicePanel('error')
+    }
+  }
+
+  const closeVoicePanel = () => {
+    audioRef.current?.pause()
+    recognizerRef.current?.stop()
+    setVoicePanel(null)
+    setVoiceError('')
+  }
+
   return (
     <div className="flex flex-col min-h-full">
       {/* Sticky header */}
@@ -168,6 +273,73 @@ export default function WorkoutLogger() {
           <CheckCircle2 size={18} /> Finish Workout
         </Button>
       </div>
+
+      {/* Floating mic button */}
+      {voiceReady && (
+        <button
+          onClick={voicePanel === 'listening' ? stopListening : startListening}
+          className={`fixed bottom-24 right-4 w-14 h-14 rounded-full flex items-center justify-center shadow-xl z-40 transition-all active:scale-90 ${
+            voicePanel === 'listening' ? 'bg-red-500 ring-4 ring-red-500/30 ring-animate' :
+            voicePanel === 'thinking'  ? 'bg-yellow-500' :
+            voicePanel === 'speaking'  ? 'bg-blue-500'   :
+            'bg-brand-500 hover:bg-brand-600'
+          }`}
+          style={{ left: 'calc(50% + 240px - 4rem - 56px)' }}
+        >
+          {voicePanel === 'listening' ? <MicOff size={22} className="text-white" /> :
+           voicePanel === 'thinking'  ? <Loader2 size={22} className="text-white animate-spin" /> :
+           voicePanel === 'speaking'  ? <Loader2 size={22} className="text-white animate-spin" /> :
+           <Mic size={22} className="text-white" />}
+        </button>
+      )}
+
+      {/* Voice conversation panel */}
+      {voicePanel && (
+        <div
+          className="fixed inset-x-0 bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50"
+          onClick={(e) => e.target === e.currentTarget && closeVoicePanel()}
+        >
+          <div className="bg-surface-card border-t border-surface-border rounded-t-2xl p-5 pb-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                {voicePanel === 'listening' ? '● Listening' :
+                 voicePanel === 'thinking'  ? 'Coach is thinking...' :
+                 voicePanel === 'speaking'  ? 'Coach speaking' :
+                 voicePanel === 'error'     ? 'Error' : ''}
+              </span>
+              <button onClick={closeVoicePanel} className="text-zinc-500 p-1">
+                <X size={16} />
+              </button>
+            </div>
+
+            {transcript && (
+              <div className="bg-surface-raised rounded-xl px-3 py-2 mb-3">
+                <p className="text-[10px] text-zinc-500 mb-0.5">YOU SAID</p>
+                <p className="text-sm text-zinc-300">{transcript}</p>
+              </div>
+            )}
+
+            {coachReply && (
+              <div className="bg-brand-500/10 border border-brand-500/30 rounded-xl px-3 py-2 mb-3">
+                <p className="text-[10px] text-brand-400 mb-0.5">COACH</p>
+                <p className="text-sm text-white">{coachReply}</p>
+              </div>
+            )}
+
+            {voiceError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2 text-xs text-red-400">
+                {voiceError}
+              </div>
+            )}
+
+            {voicePanel === 'listening' && (
+              <p className="text-[11px] text-zinc-500 text-center mt-1">
+                Talk to your coach. Tap the mic again to stop.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Rest timer */}
       {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
