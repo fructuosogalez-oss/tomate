@@ -31,7 +31,7 @@ export const useStore = create(
         elevenlabsKey:  '',
         voiceId:        'QjreVJyDygkOqCMjZyDF',
         claudeKey:      '',
-        sttLang:        'es-ES',
+        sttLang:        'es-MX',
         ttsModel:       'eleven_flash_v2_5',
         claudeModel:    'claude-haiku-4-5',
       },

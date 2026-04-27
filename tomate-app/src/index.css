@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,10 +17,11 @@ html, body, #root {
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: #0f0f0f;
-  color: #f5f5f5;
+  background: #000;
+  color: #fff;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  font-feature-settings: 'ss01', 'cv11';
 }
 
 #root {
@@ -30,25 +31,49 @@ body {
   margin: 0 auto;
   min-height: 100%;
   position: relative;
+  background: #000;
 }
 
 ::-webkit-scrollbar { width: 0; }
+::selection { background: #ef4444; color: #fff; }
 
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
-.page-enter { animation: fadeSlideIn 0.2s ease-out; }
+.page-enter { animation: fadeSlideIn 0.18s ease-out; }
 
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.ring-animate {
-  animation: pulse-ring 2s ease-in-out infinite;
+.ring-animate { animation: pulse-ring 1.4s ease-in-out infinite; }
+@keyframes pulse-ring {
+  0%, 100% { opacity: 1; transform: scale(1);   }
+  50%       { opacity: 0.7; transform: scale(1.05); }
 }
 
-@keyframes pulse-ring {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.6; }
+/* Display text — heavy, condensed feel */
+.font-display {
+  font-family: 'Bebas Neue', 'Inter', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+/* Hairline divider */
+.divider-y {
+  background: linear-gradient(90deg, transparent, #1f1f1f 30%, #1f1f1f 70%, transparent);
+  height: 1px;
+  width: 100%;
+}
+
+/* Subtle grain on cards */
+.grain {
+  position: relative;
+}
+.grain::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 20% 0%, rgba(239,68,68,0.06), transparent 50%);
+  pointer-events: none;
+  border-radius: inherit;
 }

@@ -37,68 +37,75 @@ export default function Dashboard() {
 
   if (!profile.setupDone) {
     return (
-      <div className="flex flex-col min-h-full items-center justify-center px-6 pb-10">
-        <div className="text-5xl mb-4">💪</div>
-        <h1 className="text-2xl font-bold text-white mb-2 text-center">Welcome to Coach</h1>
-        <p className="text-zinc-400 text-center text-sm mb-8 leading-relaxed">
-          Your personal trainer that adapts to your life. Set up your profile to get started.
+      <div className="flex flex-col min-h-full items-center justify-center px-6 pb-10 bg-surface">
+        <div className="mb-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest-x text-brand-500">Coach</span>
+        </div>
+        <h1 className="text-4xl font-black text-white mb-3 text-center tracking-tight leading-none">
+          BUILT FOR<br/>YOUR GRIND
+        </h1>
+        <p className="text-zinc-400 text-center text-sm mb-8 leading-relaxed max-w-[280px]">
+          Personal trainer that adapts to your life. Set up your profile to begin.
         </p>
         <Button size="lg" className="w-full max-w-xs" onClick={() => navigate('/settings')}>
-          Set Up My Profile
+          Set Up Profile
         </Button>
       </div>
     )
   }
 
   return (
-    <Layout title={`${dayName()}, ${profile.name || 'Coach'}`}>
-      <p className="text-zinc-500 text-sm -mt-2 mb-5">{dateStr()}</p>
+    <Layout
+      eyebrow={dateStr()}
+      title={`${dayName()}, ${profile.name || 'Athlete'}`}
+    >
 
       {/* Coach recommendation */}
       <CoachCard
         label={rec.label}
         message={rec.message}
         color={rec.color}
-        className="mb-4"
+        className="mb-3"
       />
 
       {/* Check-in CTA */}
       {!todayCheckin ? (
         <button
           onClick={() => setShowCheckin(true)}
-          className="w-full bg-surface-card border border-surface-border rounded-2xl p-4 flex items-center justify-between mb-4 active:bg-surface-raised transition-colors"
+          className="w-full bg-surface-card border border-surface-border p-4 flex items-center justify-between mb-3 active:bg-surface-raised transition-colors"
         >
           <div>
-            <p className="text-sm font-medium text-white">Daily Check-in</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Log fatigue, sleep & workload</p>
+            <p className="text-xs font-bold uppercase tracking-wider-x text-white">Daily Check-in</p>
+            <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider-x">Fatigue · Sleep · Workload</p>
           </div>
-          <ChevronRight size={18} className="text-zinc-500" />
+          <ChevronRight size={18} className="text-zinc-600" />
         </button>
       ) : (
-        <div className="bg-surface-card border border-surface-border rounded-2xl p-4 flex items-center gap-3 mb-4">
-          <CheckCircle2 size={18} className="text-brand-400 shrink-0" />
+        <div className="bg-surface-card border border-surface-border p-4 flex items-center gap-3 mb-3">
+          <CheckCircle2 size={18} className="text-brand-500 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white">Check-in done</p>
-            <p className="text-xs text-zinc-500">Fatigue {todayCheckin.fatigue}/5 · Sleep {todayCheckin.sleep}/5 · Work {todayCheckin.workDemand}/5</p>
+            <p className="text-xs font-bold uppercase tracking-wider-x text-white">Check-in Done</p>
+            <p className="text-[10px] text-zinc-500 mt-1 tabular-nums">F {todayCheckin.fatigue}/5 · S {todayCheckin.sleep}/5 · W {todayCheckin.workDemand}/5</p>
           </div>
-          <button onClick={() => setShowCheckin(true)} className="text-xs text-brand-400">Edit</button>
+          <button onClick={() => setShowCheckin(true)} className="text-[10px] font-bold uppercase tracking-wider-x text-brand-500">Edit</button>
         </div>
       )}
 
       {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <StatCard label="This Week" value={thisWeekCount} unit="sessions" sub={`${streak} day streak`} />
-        <StatCard label="Body Weight" value={latestBody?.weight} unit={weightUnit(profile)} sub={latestBody ? latestBody.date : 'Not logged yet'} />
+      <div className="grid grid-cols-2 gap-px bg-surface-border mb-3">
+        <StatCard label="This Week" value={thisWeekCount} unit="Sessions" sub={`${streak} Day Streak`} />
+        <StatCard label="Body Weight" value={latestBody?.weight} unit={weightUnit(profile)} sub={latestBody ? latestBody.date : 'Not Logged'} />
         <StatCard
-          label="Calories Today"
+          label="Calories"
           value={todayNutrition.calories || 0}
           unit={`/ ${targets.calories}`}
-          sub={`${todayNutrition.protein || 0}g / ${targets.protein}g protein`}
+          sub={`${todayNutrition.protein || 0}g / ${targets.protein}g Protein`}
         />
         <StatCard
-          label="Active Plan"
-          value={activePlan ? null : '—'}
-          sub={activePlan ? activePlan.name : 'Set up in Workout'}
+          label="Plan"
+          value={activePlan ? (activePlan.days?.length || 0) : '—'}
+          unit={activePlan ? 'Days' : ''}
+          sub={activePlan ? activePlan.name : 'Setup In Workout'}
           className="cursor-pointer"
         />
       </div>
@@ -107,24 +114,25 @@ export default function Dashboard() {
       {rec.shouldTrain && activePlan && (
         <Button
           size="lg"
-          className="w-full mb-4"
+          className="w-full mb-3"
           onClick={() => navigate('/workout')}
         >
-          <Zap size={18} />
+          <Zap size={16} />
           Start Today's Session
         </Button>
       )}
 
       {/* Motivation */}
-      <p className="text-xs text-zinc-500 text-center mt-2 leading-relaxed px-2">
+      <p className="text-[11px] text-zinc-500 text-center mt-3 leading-relaxed px-4 uppercase tracking-wider-x font-medium">
         {getMotivationalMessage(profile, sessions)}
       </p>
 
       {/* Check-in sheet */}
       {showCheckin && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center" onClick={() => setShowCheckin(false)}>
-          <div className="bg-surface-card w-full max-w-[480px] rounded-t-2xl p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-semibold text-white mb-5">How are you today?</h2>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center" onClick={() => setShowCheckin(false)}>
+          <div className="bg-surface-card border-t border-surface-border w-full max-w-[480px] p-6 pb-10" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[10px] font-bold uppercase tracking-widest-x text-brand-500 mb-1">Check-in</p>
+            <h2 className="text-2xl font-black text-white mb-6 tracking-tight leading-none">How Are You Today?</h2>
 
             <SliderRow
               icon={<Flame size={16} className="text-orange-400" />}
@@ -161,16 +169,16 @@ function SliderRow({ icon, label, value, onChange, left, right }) {
     <div className="mb-5">
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-sm font-medium text-white">{label}</span>
-        <span className="ml-auto text-sm font-bold text-brand-400">{value}/5</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider-x text-white">{label}</span>
+        <span className="ml-auto text-2xl font-black text-brand-500 tabular-nums leading-none">{value}<span className="text-xs text-zinc-600">/5</span></span>
       </div>
       <input
         type="range" min="1" max="5" step="1"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-green-500 h-2"
+        className="w-full accent-red-500 h-2"
       />
-      <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+      <div className="flex justify-between text-[9px] text-zinc-700 mt-1 uppercase tracking-wider-x">
         <span>{left}</span><span>{right}</span>
       </div>
     </div>

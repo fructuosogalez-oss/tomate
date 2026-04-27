@@ -1,20 +1,22 @@
 const COLOR_MAP = {
-  brand:  { bg: 'bg-brand-500/10 border-brand-500/30',  text: 'text-brand-400',  dot: 'bg-brand-400'  },
-  yellow: { bg: 'bg-yellow-500/10 border-yellow-500/30', text: 'text-yellow-400', dot: 'bg-yellow-400' },
-  red:    { bg: 'bg-red-500/10 border-red-500/30',       text: 'text-red-400',    dot: 'bg-red-400'    },
-  gray:   { bg: 'bg-zinc-800/60 border-zinc-700',        text: 'text-zinc-400',   dot: 'bg-zinc-400'   },
+  brand:  { bar: 'bg-brand-500',  text: 'text-brand-500',  bg: 'bg-surface-card' },
+  yellow: { bar: 'bg-yellow-500', text: 'text-yellow-400', bg: 'bg-surface-card' },
+  red:    { bar: 'bg-red-500',    text: 'text-red-400',    bg: 'bg-surface-card' },
+  gray:   { bar: 'bg-zinc-600',   text: 'text-zinc-400',   bg: 'bg-surface-card' },
 }
 
 export default function CoachCard({ label, message, color = 'brand', className = '' }) {
   const c = COLOR_MAP[color] || COLOR_MAP.brand
 
   return (
-    <div className={`rounded-2xl border p-4 ${c.bg} ${className}`}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className={`w-2 h-2 rounded-full ${c.dot}`} />
-        <span className={`text-xs font-semibold uppercase tracking-wider ${c.text}`}>{label}</span>
+    <div className={`relative ${c.bg} border border-surface-border overflow-hidden ${className}`}>
+      <span className={`absolute left-0 top-0 bottom-0 w-1 ${c.bar}`} />
+      <div className="pl-5 pr-4 py-4">
+        <p className={`text-[10px] font-bold uppercase tracking-widest-x ${c.text} mb-1.5`}>
+          {label}
+        </p>
+        <p className="text-sm text-white leading-snug font-medium">{message}</p>
       </div>
-      <p className="text-sm text-zinc-300 leading-relaxed">{message}</p>
     </div>
   )
 }

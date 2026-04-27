@@ -96,11 +96,33 @@ export async function askCoach({ apiKey, messages, system, model = 'claude-haiku
 }
 
 // ─── Coach prompt builder ────────────────────────────────────────────────────
-export function buildCoachSystem({ profile, weightUnit = 'lbs' }) {
-  const name = profile?.name || 'athlete'
+export function buildCoachSystem({ profile, weightUnit = 'lbs', language = 'es-MX' }) {
+  const name = profile?.name || 'compa'
+  const lang = (language || '').toLowerCase()
+  const isMexican = lang === 'es-mx' || lang === 'es-us'
+  const isSpanish = lang.startsWith('es')
+
+  let langLine
+  if (isMexican) {
+    langLine = `CRÍTICO: Responde SIEMPRE en ESPAÑOL MEXICANO dentro de <say>. Nada de inglés ni de español de España.
+Habla como entrenador mexicano de gimnasio: directo, motivador, con energía. Usa expresiones naturales como "vámonos", "échale ganas", "ya casi", "una más", "tú puedes", "no te rajes", "dale duro", "qué chido", "buena rola". Tutea siempre. Nada de "vale", "tío", "molar".`
+  } else if (isSpanish) {
+    langLine = 'CRÍTICO: Responde SIEMPRE en ESPAÑOL dentro de <say>. Nada de inglés.'
+  } else {
+    langLine = 'IMPORTANT: Respond ONLY in English inside <say>.'
+  }
+
+  const sayExample = isMexican
+    ? 'Vámonos ' + name + ', esa serie estuvo cabrona. Descansa 90 segundos y vamos a la siguiente.'
+    : isSpanish
+    ? 'Vamos ' + name + ', otra serie sólida. Descansa 90 segundos.'
+    : 'Solid set, ' + name + '. Rest 90 seconds.'
+
   return `You are an elite personal trainer talking to ${name} during a workout.
 Speak like a real coach — warm, direct, hyped when they hit a set, calm when correcting form.
-Match the user's language (Spanish or English). Keep responses to 1–2 short sentences (under 25 words) — they're mid-workout.
+Keep responses to 1–2 short sentences (under 25 words) — they're mid-workout.
+
+${langLine}
 
 When they tell you what they did, extract structured data and respond in this exact format:
 
@@ -108,7 +130,7 @@ When they tell you what they did, extract structured data and respond in this ex
 [{"exercise":"<name as said>","weight":<number>,"reps":<number>}]
 </updates>
 <say>
-<short coaching message in their language, max 25 words>
+${sayExample}
 </say>
 
 If they ask a question or want advice (no set logging), just respond with <say>...</say> and skip <updates>.

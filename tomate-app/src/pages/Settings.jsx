@@ -51,9 +51,15 @@ export default function Settings() {
   const testVoice = async () => {
     setTestStatus('Speaking...')
     try {
-      const greeting = form.name
-        ? `Hola ${form.name}, listo para entrenar fuerte. Vamos.`
-        : 'Hola, listo para entrenar fuerte. Vamos.'
+      const lang = (voiceForm.sttLang || 'es-MX').toLowerCase()
+      const isMx = lang === 'es-mx' || lang === 'es-us'
+      const isEs = lang.startsWith('es')
+      const who = form.name || 'compa'
+      const greeting = isMx
+        ? `Qué onda ${who}, soy tu entrenador. Vámonos a darle duro hoy.`
+        : isEs
+        ? `Hola ${who}, soy tu entrenador. Vamos a entrenar duro hoy.`
+        : `Hey ${who}, this is your coach. Let's go hard today.`
       await speak(greeting, {
         apiKey: voiceForm.elevenlabsKey,
         voiceId: voiceForm.voiceId,
@@ -324,12 +330,12 @@ export default function Settings() {
               {/* Language */}
               <Select
                 label="Voice Recognition Language"
-                value={voiceForm.sttLang || 'es-ES'}
+                value={voiceForm.sttLang || 'es-MX'}
                 onChange={(e) => setV('sttLang', e.target.value)}
               >
-                <option value="es-ES">Español (España)</option>
-                <option value="es-MX">Español (México)</option>
+                <option value="es-MX">Español (México) — recomendado</option>
                 <option value="es-US">Español (US)</option>
+                <option value="es-ES">Español (España)</option>
                 <option value="en-US">English (US)</option>
                 <option value="en-GB">English (UK)</option>
               </Select>
