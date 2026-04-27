@@ -86,7 +86,7 @@ export function getDailyRecommendation({ checkin, profile, lastSessions = [] }) 
       intensity: 'recover',
       label: 'Rest Day',
       message: `You're running on fumes. ${fatigue >= 5 ? 'Fatigue is high' : 'Work has drained you'}. A full rest or light walk is the smartest move today.`,
-      color: 'red',
+      color: 'gray',
       shouldTrain: false,
     }
   } else if (stress >= 4 || (consecutiveDays >= 3 && fatigue >= 3)) {
@@ -100,7 +100,7 @@ export function getDailyRecommendation({ checkin, profile, lastSessions = [] }) 
   } else if (fatigue <= 2 && sleep >= 4 && workDemand <= 2) {
     rec = {
       intensity: 'hard',
-      label: 'Go Hard Today',
+      label: 'Train Hard',
       message: "You're rested and fresh. Push today — set some PRs, add weight, bring the intensity.",
       color: 'brand',
       shouldTrain: true,

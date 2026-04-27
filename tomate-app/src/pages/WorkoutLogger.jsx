@@ -158,7 +158,7 @@ export default function WorkoutLogger() {
   const sendToCoach = async (text) => {
     setVoicePanel('thinking')
     try {
-      const system = buildCoachSystem({ profile, weightUnit: wUnit.toLowerCase() })
+      const system = buildCoachSystem({ profile, weightUnit: wUnit.toLowerCase(), language: voice.sttLang || 'es-MX' })
       const exerciseSummary = activeWorkout.exercises.map((ex, i) => {
         const done = ex.sets.filter((s) => s.done)
         return `${i + 1}. ${ex.name} (${done.length}/${ex.sets.length} sets done${done.length ? ', last: ' + done[done.length-1].weight + wUnit + '×' + done[done.length-1].reps : ''})`
