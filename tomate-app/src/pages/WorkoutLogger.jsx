@@ -19,7 +19,7 @@ export default function WorkoutLogger() {
   const [elapsed, setElapsed] = useState(0)
   const [showFinish, setShowFinish] = useState(false)
   const [sessionNote, setSessionNote] = useState('')
-  const [expandedEx, setExpandedEx] = useState(null)
+  const [expandedEx, setExpandedEx] = useState(0)  // first exercise expanded by default
   const [showAddEx, setShowAddEx] = useState(false)
   const intervalRef = useRef(null)
 
@@ -30,6 +30,24 @@ export default function WorkoutLogger() {
     }, 1000)
     return () => clearInterval(intervalRef.current)
   }, [activeWorkout])
+
+  // When the currently expanded exercise has all sets done, auto-jump to the next
+  // incomplete exercise so the user always sees something actionable.
+  useEffect(() => {
+    if (!activeWorkout || expandedEx == null) return
+    const cur = activeWorkout.exercises[expandedEx]
+    if (!cur) return
+    const allDone = cur.sets.length > 0 && cur.sets.every((s) => s.done)
+    if (!allDone) return
+    const nextIdx = activeWorkout.exercises.findIndex((ex, i) =>
+      i > expandedEx && ex.sets.some((s) => !s.done)
+    )
+    if (nextIdx !== -1) {
+      // Small delay so the rest timer/toast feels natural
+      const t = setTimeout(() => setExpandedEx(nextIdx), 600)
+      return () => clearTimeout(t)
+    }
+  }, [activeWorkout, expandedEx])
 
   if (!activeWorkout) {
     return (
@@ -137,7 +155,7 @@ export default function WorkoutLogger() {
         <p className="text-right text-[10px] text-zinc-600 mt-1">{doneSets}/{totalSets} sets</p>
       </div>
 
-      <div className="flex-1 px-4 pb-32 pt-4 space-y-4">
+      <div className="flex-1 px-4 pt-4 space-y-3" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
         {exercises.map((ex, ei) => (
           <ExerciseCard
             key={ex.id}
@@ -158,7 +176,10 @@ export default function WorkoutLogger() {
       </div>
 
       {/* Finish button */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-6 pt-2 bg-gradient-to-t from-surface via-surface/90 to-transparent z-30">
+      <div
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pt-3 bg-gradient-to-t from-surface via-surface/95 to-transparent z-30"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      >
         <Button
           size="lg"
           className="w-full"
@@ -198,22 +219,26 @@ export default function WorkoutLogger() {
 
 function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, onRemoveSet, onRemoveEx, onTimerOpen, weightLabel = 'KG' }) {
   const doneSets = ex.sets.filter((s) => s.done).length
+  const allDone = doneSets === ex.sets.length && ex.sets.length > 0
 
   return (
-    <div className="bg-surface-card rounded-2xl overflow-hidden">
+    <div className={`bg-surface-card border ${expanded ? 'border-brand-500/40' : 'border-surface-border'} overflow-hidden transition-colors`}>
       {/* Header */}
-      <button className="w-full flex items-center justify-between px-4 py-3" onClick={onToggle}>
+      <button className="w-full flex items-center justify-between px-4 py-4" onClick={onToggle}>
         <div className="flex items-center gap-3 min-w-0">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${doneSets === ex.sets.length ? 'bg-brand-500/20 text-brand-400' : 'bg-surface-raised text-zinc-500'}`}>
+          <span className={`text-[11px] font-bold tabular-nums px-2 py-1 ${allDone ? 'bg-brand-500 text-white' : 'bg-surface-raised text-zinc-400'}`}>
             {doneSets}/{ex.sets.length}
           </span>
-          <p className="text-sm font-semibold text-white truncate">{ex.name}</p>
+          <p className={`text-sm font-bold truncate uppercase tracking-wider-x ${allDone ? 'text-zinc-500 line-through' : 'text-white'}`}>{ex.name}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={(e) => { e.stopPropagation(); onRemoveEx(exIdx) }} className="text-zinc-600 hover:text-red-400 p-1">
-            <Trash2 size={14} />
+          {!expanded && !allDone && (
+            <span className="text-[9px] font-bold uppercase tracking-widest-x text-brand-500">Tap</span>
+          )}
+          <button onClick={(e) => { e.stopPropagation(); onRemoveEx(exIdx) }} className="text-zinc-700 hover:text-red-400 p-1">
+            <Trash2 size={13} />
           </button>
-          {expanded ? <ChevronUp size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
+          {expanded ? <ChevronUp size={16} className="text-brand-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
         </div>
       </button>
 
