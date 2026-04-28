@@ -19,7 +19,7 @@ export default function WorkoutLogger() {
   const [elapsed, setElapsed] = useState(0)
   const [showFinish, setShowFinish] = useState(false)
   const [sessionNote, setSessionNote] = useState('')
-  const [expandedEx, setExpandedEx] = useState(null)
+  const [expandedEx, setExpandedEx] = useState(0)  // first exercise expanded by default
   const [showAddEx, setShowAddEx] = useState(false)
   const intervalRef = useRef(null)
 
@@ -30,6 +30,24 @@ export default function WorkoutLogger() {
     }, 1000)
     return () => clearInterval(intervalRef.current)
   }, [activeWorkout])
+
+  // When the currently expanded exercise has all sets done, auto-jump to the next
+  // incomplete exercise so the user always sees something actionable.
+  useEffect(() => {
+    if (!activeWorkout || expandedEx == null) return
+    const cur = activeWorkout.exercises[expandedEx]
+    if (!cur) return
+    const allDone = cur.sets.length > 0 && cur.sets.every((s) => s.done)
+    if (!allDone) return
+    const nextIdx = activeWorkout.exercises.findIndex((ex, i) =>
+      i > expandedEx && ex.sets.some((s) => !s.done)
+    )
+    if (nextIdx !== -1) {
+      // Small delay so the rest timer/toast feels natural
+      const t = setTimeout(() => setExpandedEx(nextIdx), 600)
+      return () => clearTimeout(t)
+    }
+  }, [activeWorkout, expandedEx])
 
   if (!activeWorkout) {
     return (
@@ -110,34 +128,34 @@ export default function WorkoutLogger() {
   return (
     <div className="flex flex-col min-h-full">
       {/* Sticky header */}
-      <div className="sticky top-0 z-40 bg-surface/90 backdrop-blur px-4 pt-12 pb-3 border-b border-surface-border">
-        <div className="flex items-center justify-between mb-2">
-          <button onClick={() => setShowFinish(true)} className="text-zinc-400 hover:text-white p-1">
-            <ArrowLeft size={20} />
+      <div className="sticky top-0 z-40 bg-surface/95 backdrop-blur px-4 pt-12 pb-3 border-b border-surface-border">
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => setShowFinish(true)} className="text-zinc-400 hover:text-white p-2 -ml-2">
+            <ArrowLeft size={22} />
           </button>
           <div className="text-center">
-            <p className="text-xs text-zinc-500 truncate max-w-[180px]">{activeWorkout.planDayName}</p>
-            <p className="text-lg font-bold text-white tabular-nums">{mins}:{secs}</p>
+            <p className="text-xs uppercase tracking-wider-x font-bold text-zinc-500 truncate max-w-[180px]">{activeWorkout.planDayName}</p>
+            <p className="text-2xl font-black text-white tabular-nums leading-tight">{mins}:{secs}</p>
           </div>
           <button
             onClick={() => setShowTimer(true)}
-            className="flex items-center gap-1.5 bg-surface-raised px-3 py-1.5 rounded-full text-xs text-zinc-300 hover:text-white"
+            className="flex items-center gap-2 bg-surface-raised px-3 py-2 text-xs font-bold uppercase tracking-wider-x text-white hover:bg-surface-border"
           >
-            <Timer size={14} /> Rest
+            <Timer size={16} /> Rest
           </button>
         </div>
 
         {/* Progress bar */}
-        <div className="h-1 bg-surface-raised rounded-full overflow-hidden">
+        <div className="h-1.5 bg-surface-raised overflow-hidden">
           <div
             className="h-full bg-brand-500 transition-all"
             style={{ width: totalSets ? `${(doneSets / totalSets) * 100}%` : '0%' }}
           />
         </div>
-        <p className="text-right text-[10px] text-zinc-600 mt-1">{doneSets}/{totalSets} sets</p>
+        <p className="text-right text-xs font-bold uppercase tracking-wider-x text-zinc-500 mt-1.5 tabular-nums">{doneSets} / {totalSets} Sets</p>
       </div>
 
-      <div className="flex-1 px-4 pb-32 pt-4 space-y-4">
+      <div className="flex-1 px-4 pt-4 space-y-3" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
         {exercises.map((ex, ei) => (
           <ExerciseCard
             key={ex.id}
@@ -158,7 +176,10 @@ export default function WorkoutLogger() {
       </div>
 
       {/* Finish button */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-6 pt-2 bg-gradient-to-t from-surface via-surface/90 to-transparent z-30">
+      <div
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pt-3 bg-gradient-to-t from-surface via-surface/95 to-transparent z-30"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      >
         <Button
           size="lg"
           className="w-full"
@@ -198,42 +219,46 @@ export default function WorkoutLogger() {
 
 function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, onRemoveSet, onRemoveEx, onTimerOpen, weightLabel = 'KG' }) {
   const doneSets = ex.sets.filter((s) => s.done).length
+  const allDone = doneSets === ex.sets.length && ex.sets.length > 0
 
   return (
-    <div className="bg-surface-card rounded-2xl overflow-hidden">
+    <div className={`bg-surface-card border ${expanded ? 'border-brand-500/40' : 'border-surface-border'} overflow-hidden transition-colors`}>
       {/* Header */}
-      <button className="w-full flex items-center justify-between px-4 py-3" onClick={onToggle}>
-        <div className="flex items-center gap-3 min-w-0">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${doneSets === ex.sets.length ? 'bg-brand-500/20 text-brand-400' : 'bg-surface-raised text-zinc-500'}`}>
+      <button className="w-full flex items-center justify-between px-4 py-4" onClick={onToggle}>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className={`text-sm font-black tabular-nums px-2.5 py-1 ${allDone ? 'bg-brand-500 text-white' : 'bg-surface-raised text-zinc-400'}`}>
             {doneSets}/{ex.sets.length}
           </span>
-          <p className="text-sm font-semibold text-white truncate">{ex.name}</p>
+          <p className={`text-base font-bold truncate uppercase tracking-wider-x ${allDone ? 'text-zinc-500 line-through' : 'text-white'}`}>{ex.name}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={(e) => { e.stopPropagation(); onRemoveEx(exIdx) }} className="text-zinc-600 hover:text-red-400 p-1">
-            <Trash2 size={14} />
+        <div className="flex items-center gap-3">
+          {!expanded && !allDone && (
+            <span className="text-xs font-bold uppercase tracking-widest-x text-brand-500">Tap</span>
+          )}
+          <button onClick={(e) => { e.stopPropagation(); onRemoveEx(exIdx) }} className="text-zinc-700 hover:text-red-400 p-1.5">
+            <Trash2 size={16} />
           </button>
-          {expanded ? <ChevronUp size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
+          {expanded ? <ChevronUp size={20} className="text-brand-500" /> : <ChevronDown size={20} className="text-zinc-500" />}
         </div>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-surface-border pt-3">
+        <div className="px-4 pb-5 border-t border-surface-border pt-4">
           {/* Set headers */}
-          <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem] gap-2 mb-2">
-            <span className="text-[10px] text-zinc-600 text-center">SET</span>
-            <span className="text-[10px] text-zinc-600 text-center">{weightLabel}</span>
-            <span className="text-[10px] text-zinc-600 text-center">REPS</span>
+          <div className="grid grid-cols-[2.5rem_1fr_1fr_3.5rem] gap-2 mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider-x text-zinc-500 text-center">Set</span>
+            <span className="text-xs font-bold uppercase tracking-wider-x text-zinc-500 text-center">{weightLabel}</span>
+            <span className="text-xs font-bold uppercase tracking-wider-x text-zinc-500 text-center">Reps</span>
             <span />
           </div>
 
           {ex.sets.map((set, si) => (
-            <div key={set.id} className="grid grid-cols-[2rem_1fr_1fr_2.5rem] gap-2 mb-2 items-center">
-              <span className={`text-xs font-bold text-center ${set.done ? 'text-brand-400' : 'text-zinc-500'}`}>{si + 1}</span>
+            <div key={set.id} className="grid grid-cols-[2.5rem_1fr_1fr_3.5rem] gap-2 mb-2 items-center">
+              <span className={`text-xl font-black tabular-nums text-center ${set.done ? 'text-brand-500' : 'text-zinc-600'}`}>{si + 1}</span>
               <input
                 type="number"
                 inputMode="decimal"
-                className={`bg-surface-raised border rounded-lg px-2 py-2 text-sm text-white text-center focus:outline-none focus:border-brand-500 transition-colors ${set.done ? 'border-brand-500/30' : 'border-surface-border'}`}
+                className={`bg-surface-raised border-2 rounded-md px-2 py-3 text-2xl font-black tabular-nums text-white text-center focus:outline-none focus:border-brand-500 transition-colors ${set.done ? 'border-brand-500/50' : 'border-surface-border'}`}
                 placeholder="—"
                 value={set.weight}
                 onChange={(e) => onUpdateSet(exIdx, si, 'weight', e.target.value)}
@@ -241,7 +266,7 @@ function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, on
               <input
                 type="number"
                 inputMode="numeric"
-                className={`bg-surface-raised border rounded-lg px-2 py-2 text-sm text-white text-center focus:outline-none focus:border-brand-500 transition-colors ${set.done ? 'border-brand-500/30' : 'border-surface-border'}`}
+                className={`bg-surface-raised border-2 rounded-md px-2 py-3 text-2xl font-black tabular-nums text-white text-center focus:outline-none focus:border-brand-500 transition-colors ${set.done ? 'border-brand-500/50' : 'border-surface-border'}`}
                 placeholder="—"
                 value={set.reps}
                 onChange={(e) => onUpdateSet(exIdx, si, 'reps', e.target.value)}
@@ -251,28 +276,28 @@ function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, on
                   onUpdateSet(exIdx, si, 'done', !set.done)
                   if (!set.done) onTimerOpen()
                 }}
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                  set.done ? 'bg-brand-500 text-white' : 'bg-surface-raised text-zinc-500 hover:text-white border border-surface-border'
+                className={`w-14 h-14 rounded-md flex items-center justify-center transition-colors active:scale-95 ${
+                  set.done ? 'bg-brand-500 text-white shadow-md shadow-brand-500/40' : 'bg-surface-raised text-zinc-500 hover:text-white border-2 border-surface-border'
                 }`}
               >
-                <Check size={15} />
+                <Check size={24} strokeWidth={3} />
               </button>
             </div>
           ))}
 
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-4">
             <button
               onClick={() => onAddSet(exIdx)}
-              className="flex-1 py-2 rounded-xl border border-dashed border-surface-border text-zinc-500 text-xs hover:border-brand-500/40 hover:text-brand-400 transition-colors flex items-center justify-center gap-1"
+              className="flex-1 py-3 rounded-md border-2 border-dashed border-surface-border text-zinc-500 text-sm font-bold uppercase tracking-wider-x hover:border-brand-500/40 hover:text-brand-500 transition-colors flex items-center justify-center gap-1"
             >
-              <Plus size={13} /> Add Set
+              <Plus size={16} /> Add Set
             </button>
             {ex.sets.length > 1 && (
               <button
                 onClick={() => onRemoveSet(exIdx, ex.sets.length - 1)}
-                className="px-3 rounded-xl border border-surface-border text-zinc-600 hover:text-red-400 transition-colors"
+                className="px-4 rounded-md border-2 border-surface-border text-zinc-600 hover:text-red-400 transition-colors"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             )}
           </div>

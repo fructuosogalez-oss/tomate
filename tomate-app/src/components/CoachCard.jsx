@@ -12,10 +12,10 @@ export default function CoachCard({ label, message, color = 'brand', className =
     <div className={`relative ${c.bg} border border-surface-border overflow-hidden ${className}`}>
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${c.bar}`} />
       <div className="pl-5 pr-4 py-4">
-        <p className={`text-[10px] font-bold uppercase tracking-widest-x ${c.text} mb-1.5`}>
+        <p className={`text-xs font-bold uppercase tracking-widest-x ${c.text} mb-2`}>
           {label}
         </p>
-        <p className="text-sm text-white leading-snug font-medium">{message}</p>
+        <p className="text-base text-white leading-snug font-medium">{message}</p>
       </div>
     </div>
   )
