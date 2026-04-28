@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Flame, Zap, Moon, Briefcase, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Flame, Zap, Moon, Briefcase, ChevronRight, CheckCircle2, X } from 'lucide-react'
 import Layout from '../components/Layout'
 import CoachCard from '../components/CoachCard'
 import StatCard from '../components/StatCard'
@@ -18,6 +18,13 @@ export default function Dashboard() {
   const { profile, checkins, saveCheckin, sessions, bodyLogs, nutritionLogs, activePlanId, workoutPlans } = useStore()
   const [showCheckin, setShowCheckin] = useState(false)
   const [form, setForm] = useState({ fatigue: 3, sleep: 3, workDemand: 2 })
+
+  const openCheckin = () => {
+    // Pre-fill with today's existing check-in (if any) so user only adjusts what changed
+    const existing = checkins[today()]
+    setForm(existing ? { ...existing } : { fatigue: 3, sleep: 3, workDemand: 2 })
+    setShowCheckin(true)
+  }
 
   const todayKey = today()
   const todayCheckin = checkins[todayKey] || null
@@ -71,24 +78,27 @@ export default function Dashboard() {
       {/* Check-in CTA */}
       {!todayCheckin ? (
         <button
-          onClick={() => setShowCheckin(true)}
+          onClick={openCheckin}
           className="w-full bg-surface-card border border-surface-border p-4 flex items-center justify-between mb-3 active:bg-surface-raised transition-colors"
         >
-          <div>
+          <div className="text-left">
             <p className="text-xs font-bold uppercase tracking-wider-x text-white">Daily Check-in</p>
             <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider-x">Fatigue · Sleep · Workload</p>
           </div>
           <ChevronRight size={18} className="text-zinc-600" />
         </button>
       ) : (
-        <div className="bg-surface-card border border-surface-border p-4 flex items-center gap-3 mb-3">
+        <button
+          onClick={openCheckin}
+          className="w-full bg-surface-card border border-surface-border p-4 flex items-center gap-3 mb-3 active:bg-surface-raised transition-colors text-left"
+        >
           <CheckCircle2 size={18} className="text-brand-500 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider-x text-white">Check-in Done</p>
+            <p className="text-xs font-bold uppercase tracking-wider-x text-white">Check-in Done — Tap to Edit</p>
             <p className="text-[10px] text-zinc-500 mt-1 tabular-nums">F {todayCheckin.fatigue}/5 · S {todayCheckin.sleep}/5 · W {todayCheckin.workDemand}/5</p>
           </div>
-          <button onClick={() => setShowCheckin(true)} className="text-[10px] font-bold uppercase tracking-wider-x text-brand-500">Edit</button>
-        </div>
+          <ChevronRight size={18} className="text-zinc-600" />
+        </button>
       )}
 
       {/* Quick stats */}
@@ -129,34 +139,70 @@ export default function Dashboard() {
 
       {/* Check-in sheet */}
       {showCheckin && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center" onClick={() => setShowCheckin(false)}>
-          <div className="bg-surface-card border-t border-surface-border w-full max-w-[480px] p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <p className="text-[10px] font-bold uppercase tracking-widest-x text-brand-500 mb-1">Check-in</p>
-            <h2 className="text-2xl font-black text-white mb-6 tracking-tight leading-none">How Are You Today?</h2>
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center"
+          onClick={() => setShowCheckin(false)}
+        >
+          <div
+            className="bg-surface-card border-t border-surface-border w-full max-w-[480px] flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header — fixed */}
+            <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b border-surface-border">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest-x text-brand-500 mb-1">Check-in</p>
+                <h2 className="text-xl font-black text-white tracking-tight leading-none">How Are You Today?</h2>
+              </div>
+              <button
+                onClick={() => setShowCheckin(false)}
+                className="p-2 -mr-2 -mt-1 text-zinc-500 hover:text-white"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-            <SliderRow
-              icon={<Flame size={16} className="text-orange-400" />}
-              label="Fatigue"
-              value={form.fatigue}
-              onChange={(v) => setForm((f) => ({ ...f, fatigue: v }))}
-              left="Fresh" right="Exhausted"
-            />
-            <SliderRow
-              icon={<Moon size={16} className="text-blue-400" />}
-              label="Sleep Quality"
-              value={form.sleep}
-              onChange={(v) => setForm((f) => ({ ...f, sleep: v }))}
-              left="Terrible" right="Great"
-            />
-            <SliderRow
-              icon={<Briefcase size={16} className="text-yellow-400" />}
-              label="Work Demand"
-              value={form.workDemand}
-              onChange={(v) => setForm((f) => ({ ...f, workDemand: v }))}
-              left="Easy day" right="Brutal"
-            />
+            {/* Sliders — scrollable */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <SliderRow
+                icon={<Flame size={16} className="text-orange-400" />}
+                label="Fatigue"
+                value={form.fatigue}
+                onChange={(v) => setForm((f) => ({ ...f, fatigue: v }))}
+                left="Fresh" right="Exhausted"
+              />
+              <SliderRow
+                icon={<Moon size={16} className="text-blue-400" />}
+                label="Sleep Quality"
+                value={form.sleep}
+                onChange={(v) => setForm((f) => ({ ...f, sleep: v }))}
+                left="Terrible" right="Great"
+              />
+              <SliderRow
+                icon={<Briefcase size={16} className="text-yellow-400" />}
+                label="Work Demand"
+                value={form.workDemand}
+                onChange={(v) => setForm((f) => ({ ...f, workDemand: v }))}
+                left="Easy day" right="Brutal"
+              />
+            </div>
 
-            <Button className="w-full mt-2" onClick={submitCheckin}>Save Check-in</Button>
+            {/* Footer — sticky save button */}
+            <div className="px-5 pt-3 pb-6 border-t border-surface-border bg-surface-card flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setShowCheckin(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-[2]"
+                onClick={submitCheckin}
+              >
+                {todayCheckin ? 'Update' : 'Save'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
