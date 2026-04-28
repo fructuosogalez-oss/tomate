@@ -18,7 +18,7 @@ export default function BottomNav() {
           to={to}
           end
           className={({ isActive }) =>
-            `flex-1 flex flex-col items-center justify-center py-2.5 gap-1 text-[9px] font-bold uppercase tracking-wider-x transition-colors relative ${
+            `flex-1 flex flex-col items-center justify-center py-2.5 gap-1 text-xs font-bold uppercase tracking-wider-x transition-colors relative ${
               isActive ? 'text-white' : 'text-zinc-600'
             }`
           }
@@ -26,7 +26,7 @@ export default function BottomNav() {
           {({ isActive }) => (
             <>
               {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand-500" />}
-              <Icon size={18} strokeWidth={isActive ? 2.4 : 1.8} />
+              <Icon size={22} strokeWidth={isActive ? 2.4 : 1.8} />
               {label}
             </>
           )}

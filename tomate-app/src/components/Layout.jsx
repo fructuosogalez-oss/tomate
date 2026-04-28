@@ -8,12 +8,12 @@ export default function Layout({ children, title, action, eyebrow }) {
           <div className="flex items-start justify-between">
             <div>
               {eyebrow && (
-                <p className="text-[10px] font-semibold uppercase tracking-widest-x text-brand-500 mb-1">
+                <p className="text-xs font-bold uppercase tracking-widest-x text-brand-500 mb-1.5">
                   {eyebrow}
                 </p>
               )}
               {title && (
-                <h1 className="text-2xl font-black text-white tracking-tight leading-none">
+                <h1 className="text-3xl font-black text-white tracking-tight leading-none">
                   {title}
                 </h1>
               )}

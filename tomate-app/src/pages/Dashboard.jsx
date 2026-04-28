@@ -46,7 +46,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col min-h-full items-center justify-center px-6 pb-10 bg-surface">
         <div className="mb-2">
-          <span className="text-[10px] font-bold uppercase tracking-widest-x text-brand-500">Coach</span>
+          <span className="text-xs font-bold uppercase tracking-widest-x text-brand-500">Coach</span>
         </div>
         <h1 className="text-4xl font-black text-white mb-3 text-center tracking-tight leading-none">
           BUILT FOR<br/>YOUR GRIND
@@ -83,7 +83,7 @@ export default function Dashboard() {
         >
           <div className="text-left">
             <p className="text-xs font-bold uppercase tracking-wider-x text-white">Daily Check-in</p>
-            <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-wider-x">Fatigue · Sleep · Workload</p>
+            <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider-x">Fatigue · Sleep · Workload</p>
           </div>
           <ChevronRight size={18} className="text-zinc-600" />
         </button>
@@ -95,7 +95,7 @@ export default function Dashboard() {
           <CheckCircle2 size={18} className="text-brand-500 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold uppercase tracking-wider-x text-white">Check-in Done — Tap to Edit</p>
-            <p className="text-[10px] text-zinc-500 mt-1 tabular-nums">F {todayCheckin.fatigue}/5 · S {todayCheckin.sleep}/5 · W {todayCheckin.workDemand}/5</p>
+            <p className="text-xs text-zinc-500 mt-1 tabular-nums">F {todayCheckin.fatigue}/5 · S {todayCheckin.sleep}/5 · W {todayCheckin.workDemand}/5</p>
           </div>
           <ChevronRight size={18} className="text-zinc-600" />
         </button>
@@ -133,7 +133,7 @@ export default function Dashboard() {
       )}
 
       {/* Motivation */}
-      <p className="text-[11px] text-zinc-500 text-center mt-3 leading-relaxed px-4 uppercase tracking-wider-x font-medium">
+      <p className="text-xs text-zinc-500 text-center mt-3 leading-relaxed px-4 uppercase tracking-wider-x font-medium">
         {getMotivationalMessage(profile, sessions)}
       </p>
 
@@ -150,7 +150,7 @@ export default function Dashboard() {
             {/* Header — fixed */}
             <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b border-surface-border">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest-x text-brand-500 mb-1">Check-in</p>
+                <p className="text-xs font-bold uppercase tracking-widest-x text-brand-500 mb-1">Check-in</p>
                 <h2 className="text-xl font-black text-white tracking-tight leading-none">How Are You Today?</h2>
               </div>
               <button
@@ -215,7 +215,7 @@ function SliderRow({ icon, label, value, onChange, left, right }) {
     <div className="mb-5">
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-[11px] font-bold uppercase tracking-wider-x text-white">{label}</span>
+        <span className="text-xs font-bold uppercase tracking-wider-x text-white">{label}</span>
         <span className="ml-auto text-2xl font-black text-brand-500 tabular-nums leading-none">{value}<span className="text-xs text-zinc-600">/5</span></span>
       </div>
       <input
@@ -224,7 +224,7 @@ function SliderRow({ icon, label, value, onChange, left, right }) {
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-red-500 h-2"
       />
-      <div className="flex justify-between text-[9px] text-zinc-700 mt-1 uppercase tracking-wider-x">
+      <div className="flex justify-between text-xs text-zinc-700 mt-1 uppercase tracking-wider-x">
         <span>{left}</span><span>{right}</span>
       </div>
     </div>
