@@ -46,72 +46,70 @@ export default function Nutrition() {
     setShowAdd(false)
   }
 
-  const filteredQuick = QUICK_MEALS.filter((m) =>
-    !quickFilter || m.name.toLowerCase().includes(quickFilter.toLowerCase())
-  )
+  const filteredQuick = QUICK_MEALS.filter((m) => !quickFilter || m.name.toLowerCase().includes(quickFilter.toLowerCase()))
 
   return (
     <Layout
-      title="Nutrition"
+      eyebrow="Fuel"
+      title="Nutrition."
       action={
-        <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)}>
-          <Plus size={16} /> Add Meal
-        </Button>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="w-9 h-9 rounded-md bg-surface-elev border border-surface-line-soft flex items-center justify-center text-ink-2 hover:text-ink"
+        >
+          <Plus size={16} />
+        </button>
       }
     >
-      {/* Date selector */}
       <input
         type="date"
         value={selectedDate}
         onChange={(e) => setSelectedDate(e.target.value)}
-        className="w-full bg-surface-card border border-surface-border rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-brand-500 mb-4"
+        className="w-full bg-surface-elev border border-surface-line-soft rounded-md px-3.5 py-3 text-ink text-[14px] focus:outline-none focus:border-accent mb-4 font-mono tabular-nums"
       />
 
-      {/* Macros ring summary */}
-      <div className="bg-surface-card rounded-2xl p-4 mb-4">
-        <div className="flex justify-between mb-4">
+      <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-5 mb-4">
+        <div className="grid grid-cols-2 gap-5 mb-4">
           <MacroBar
             label="Calories"
             current={calories}
             target={targets.calories}
             pct={calPct}
-            color="bg-orange-500"
-            icon={<Flame size={14} className="text-orange-400" />}
+            color="#FF2D2D"
+            icon={<Flame size={12} className="text-accent" />}
           />
           <MacroBar
             label="Protein"
             current={`${protein}g`}
             target={`${targets.protein}g`}
             pct={protPct}
-            color="bg-brand-500"
-            icon={<Beef size={14} className="text-brand-400" />}
+            color="#FF2D2D"
+            icon={<Beef size={12} className="text-accent" />}
           />
         </div>
 
-        {/* Coach feedback */}
         {calories > 0 && (
-          <p className="text-xs text-zinc-400 bg-surface-raised rounded-xl px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 leading-relaxed bg-surface-elev rounded-md px-3 py-2.5">
             {calPct >= 100
-              ? `You've hit your calorie target. ${protPct < 80 ? 'Keep pushing on protein.' : 'Great job today!'}`
-              : calPct >= 70
-              ? `${targets.calories - calories} kcal left. ${protPct < 80 ? `Still need ${targets.protein - protein}g protein.` : 'Protein looking good!'}`
-              : `${targets.calories - calories} kcal remaining. Make sure to hit your protein first.`}
+              ? `Target hit. ${protPct < 80 ? `${targets.protein - protein}g protein left.` : 'Solid day.'}`
+              : `${targets.calories - calories} kcal left · ${Math.max(0, targets.protein - protein)}g protein`}
           </p>
         )}
       </div>
 
-      {/* Meals list */}
       {meals.length > 0 ? (
         <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Meals</p>
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Meals</p>
           <div className="space-y-2">
             {meals.map((m) => (
-              <div key={m.id} className="bg-surface-card rounded-xl px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-white">{m.name}</p>
-                  <p className="text-xs text-zinc-500">{m.calories} kcal · {m.protein}g protein</p>
+              <div key={m.id} className="bg-surface-card border border-surface-line-soft rounded-[14px] px-4 py-3 flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-ink text-[14px] font-medium truncate">{m.name}</p>
+                  <p className="font-mono text-[11px] tabular-nums text-ink-3 mt-0.5">
+                    {m.calories} kcal · {m.protein}g protein
+                  </p>
                 </div>
-                <button onClick={() => removeMeal(selectedDate, m.id)} className="text-zinc-600 hover:text-red-400 p-1">
+                <button onClick={() => removeMeal(selectedDate, m.id)} className="text-ink-3 hover:text-accent p-2">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -120,37 +118,31 @@ export default function Nutrition() {
         </div>
       ) : (
         <div className="text-center py-10">
-          <p className="text-zinc-500 text-sm">No meals logged for this day.</p>
-          <button onClick={() => setShowAdd(true)} className="text-brand-400 text-sm mt-1">+ Add your first meal</button>
+          <p className="text-ink-2 text-[14px]">No meals logged for this day.</p>
+          <button onClick={() => setShowAdd(true)} className="font-mono text-[11px] uppercase tracking-eyebrow text-accent mt-2">+ Add meal</button>
         </div>
       )}
 
-      {/* Add meal sheet */}
       {showAdd && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center" onClick={() => setShowAdd(false)}>
-          <div className="bg-surface-card w-full max-w-[480px] rounded-t-2xl p-5 pb-10 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-semibold text-white mb-4">Add Meal</h2>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end" onClick={() => setShowAdd(false)}>
+          <div className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-5 max-h-[88vh] overflow-y-auto" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent mb-2">Add</p>
+            <h2 className="font-display text-[28px] italic text-ink leading-none tracking-display mb-5">Meal.</h2>
 
-            {/* Custom form */}
-            <div className="space-y-3 mb-4">
-              <Input
-                label="Meal Name"
-                placeholder="e.g. Grilled chicken"
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-              />
+            <div className="space-y-3 mb-5">
+              <Input label="Meal Name" placeholder="e.g. Grilled chicken" value={form.name} onChange={(e) => set('name', e.target.value)} />
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Calories (kcal)" type="number" inputMode="numeric" placeholder="400" value={form.calories} onChange={(e) => set('calories', e.target.value)} />
-                <Input label="Protein (g)" type="number" inputMode="numeric" placeholder="35" value={form.protein} onChange={(e) => set('protein', e.target.value)} />
+                <Input label="Calories · kcal" type="number" inputMode="numeric" placeholder="400" value={form.calories} onChange={(e) => set('calories', e.target.value)} />
+                <Input label="Protein · g"     type="number" inputMode="numeric" placeholder="35"  value={form.protein}  onChange={(e) => set('protein', e.target.value)} />
               </div>
               <Button className="w-full" onClick={() => saveMeal(form)} disabled={!form.name}>Add Meal</Button>
             </div>
 
-            <div className="border-t border-surface-border pt-4">
-              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Quick Add</p>
+            <div className="border-t border-surface-line-soft pt-4">
+              <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Quick Add</p>
               <input
-                className="w-full bg-surface-raised border border-surface-border rounded-xl px-3 py-2 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-brand-500 mb-3"
-                placeholder="Search foods..."
+                className="w-full bg-surface-elev border border-surface-line-soft rounded-md px-3.5 py-3 text-ink text-[14px] placeholder:text-ink-4 focus:outline-none focus:border-accent mb-3"
+                placeholder="Search foods…"
                 value={quickFilter}
                 onChange={(e) => setQuickFilter(e.target.value)}
               />
@@ -159,10 +151,10 @@ export default function Nutrition() {
                   <button
                     key={i}
                     onClick={() => saveMeal(m)}
-                    className="w-full bg-surface-raised hover:bg-surface-border rounded-xl px-4 py-3 flex items-center justify-between text-left transition-colors"
+                    className="w-full bg-surface-elev border border-surface-line-soft hover:bg-surface-card rounded-md px-4 py-3 flex items-center justify-between text-left transition-colors"
                   >
-                    <span className="text-sm text-white">{m.name}</span>
-                    <span className="text-xs text-zinc-500">{m.calories} kcal · {m.protein}g</span>
+                    <span className="text-ink text-[13px]">{m.name}</span>
+                    <span className="font-mono text-[11px] tabular-nums text-ink-3">{m.calories} kcal · {m.protein}g</span>
                   </button>
                 ))}
               </div>
@@ -176,17 +168,16 @@ export default function Nutrition() {
 
 function MacroBar({ label, current, target, pct, color, icon }) {
   return (
-    <div className="flex-1 mr-4 last:mr-0">
-      <div className="flex items-center gap-1.5 mb-1">
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
         {icon}
-        <span className="text-xs text-zinc-500">{label}</span>
+        <span className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">{label}</span>
       </div>
-      <p className="text-xl font-bold text-white mb-1">{current}</p>
-      <p className="text-xs text-zinc-500 mb-2">/ {target}</p>
-      <div className="h-2 bg-surface-raised rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      <p className="font-mono text-[24px] tabular-nums text-ink leading-none">{current}</p>
+      <p className="font-mono text-[10px] tabular-nums text-ink-3 mt-1">/ {target}</p>
+      <div className="h-1 bg-surface-line rounded-full mt-2 overflow-hidden">
+        <div className="h-full transition-all" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <p className="text-[10px] text-zinc-600 mt-1">{pct}%</p>
     </div>
   )
 }

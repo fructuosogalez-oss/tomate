@@ -1,22 +1,27 @@
+/**
+ * CoachCard — small recommendation card with eyebrow and short body.
+ * Color: brand (accent red), warn (amber), gray (rest), good (green).
+ */
 const COLOR_MAP = {
-  brand:  { bar: 'bg-brand-500',  text: 'text-brand-500',  bg: 'bg-surface-card' },
-  yellow: { bar: 'bg-yellow-500', text: 'text-yellow-400', bg: 'bg-surface-card' },
-  red:    { bar: 'bg-red-500',    text: 'text-red-400',    bg: 'bg-surface-card' },
-  gray:   { bar: 'bg-zinc-600',   text: 'text-zinc-400',   bg: 'bg-surface-card' },
+  brand:  { eyebrow: 'text-accent', dot: 'bg-accent' },
+  yellow: { eyebrow: 'text-warn',   dot: 'bg-warn'   },
+  red:    { eyebrow: 'text-accent', dot: 'bg-accent' },
+  gray:   { eyebrow: 'text-ink-3',  dot: 'bg-ink-4'  },
+  good:   { eyebrow: 'text-good',   dot: 'bg-good'   },
 }
 
 export default function CoachCard({ label, message, color = 'brand', className = '' }) {
   const c = COLOR_MAP[color] || COLOR_MAP.brand
 
   return (
-    <div className={`relative ${c.bg} border border-surface-border overflow-hidden ${className}`}>
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${c.bar}`} />
-      <div className="pl-5 pr-4 py-4">
-        <p className={`text-xs font-bold uppercase tracking-widest-x ${c.text} mb-2`}>
+    <div className={`bg-surface-card border border-surface-line-soft rounded-[20px] px-[18px] py-[18px] ${className}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`block w-1.5 h-1.5 rounded-full ${c.dot} breathe`} />
+        <p className={`font-mono text-[10px] uppercase tracking-eyebrow ${c.eyebrow}`}>
           {label}
         </p>
-        <p className="text-base text-white leading-snug font-medium">{message}</p>
       </div>
+      <p className="text-ink text-[14px] leading-snug">{message}</p>
     </div>
   )
 }

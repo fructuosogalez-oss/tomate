@@ -1,427 +1,316 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
-} from 'recharts'
-import { Settings, Flame, Award, Calendar } from 'lucide-react'
+import { TrendingUp, TrendingDown } from 'lucide-react'
 import Layout from '../components/Layout'
-import CoachCard from '../components/CoachCard'
 import { useStore } from '../store/useStore'
 import { getWeeklyStats, getStreak, calcTargets, GOALS } from '../utils/coach'
+import { weightUnit } from '../utils/units'
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const RANGES = [
+  { key: '1W', days: 7 },
+  { key: '1M', days: 30 },
+  { key: '3M', days: 90 },
+  { key: '6M', days: 180 },
+  { key: '1Y', days: 365 },
+  { key: 'ALL', days: 99999 },
+]
 
 export default function Progress() {
   const navigate = useNavigate()
-  const { sessions, bodyLogs, nutritionLogs, profile, checkins } = useStore()
-  const [tab, setTab] = useState('overview') // overview | strength | body | nutrition
-
-  const { thisWeekCount, lastWeekCount, thisWeekSessions } = getWeeklyStats(sessions)
-  const streak = getStreak(sessions)
+  const { sessions, bodyLogs, nutritionLogs, profile } = useStore()
+  const [range, setRange] = useState('3M')
+  const wUnit = weightUnit(profile)
   const targets = calcTargets(profile)
 
-  // Weekly session days heatmap (last 8 weeks)
-  const heatmapData = buildHeatmap(sessions)
+  const days = RANGES.find((r) => r.key === range)?.days || 90
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
 
-  // Strength PRs per exercise
-  const prs = buildPRs(sessions)
+  const filteredSessions = sessions.filter((s) => new Date(s.date) >= cutoff)
+  const filteredBody     = bodyLogs.filter((b) => new Date(b.date) >= cutoff)
 
-  // Last 10 weeks training volume
-  const weeklyVolume = buildWeeklyVolume(sessions)
+  // Total volume
+  const totalVolume = useMemo(() => {
+    let total = 0
+    for (const s of filteredSessions) {
+      for (const ex of s.exercises || []) {
+        for (const set of ex.sets || []) {
+          if (set.done) total += (Number(set.weight) || 0) * (Number(set.reps) || 0)
+        }
+      }
+    }
+    return total
+  }, [filteredSessions])
 
-  // Weight history
-  const weightData = [...bodyLogs]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .filter((l) => l.weight)
-    .slice(-20)
-    .map((l) => ({ date: l.date.slice(5), weight: l.weight }))
+  // Volume per week (last N weeks)
+  const weeklyVolume = useMemo(() => {
+    const weeks = {}
+    for (const s of filteredSessions) {
+      const d = new Date(s.date); const wStart = new Date(d)
+      wStart.setDate(d.getDate() - d.getDay()); wStart.setHours(0, 0, 0, 0)
+      const key = wStart.toISOString().slice(0, 10)
+      if (!weeks[key]) weeks[key] = 0
+      for (const ex of s.exercises || []) {
+        for (const set of ex.sets || []) {
+          if (set.done) weeks[key] += (Number(set.weight) || 0) * (Number(set.reps) || 0)
+        }
+      }
+    }
+    return Object.entries(weeks).sort(([a], [b]) => a.localeCompare(b)).slice(-12)
+  }, [filteredSessions])
 
-  // Calorie adherence last 14 days
-  const nutritionAdherence = buildNutritionAdherence(nutritionLogs, targets)
+  // Trend %
+  const volumeTrend = useMemo(() => {
+    if (weeklyVolume.length < 2) return null
+    const first = weeklyVolume[0][1]
+    const last = weeklyVolume[weeklyVolume.length - 1][1]
+    if (first === 0) return null
+    return Math.round(((last - first) / first) * 100)
+  }, [weeklyVolume])
+
+  // Big lifts
+  const bigLifts = useMemo(() => buildBigLifts(filteredSessions), [filteredSessions])
+
+  // Recent PRs
+  const recentPRs = useMemo(() => buildRecentPRs(filteredSessions), [filteredSessions])
+
+  // Body weight delta
+  const bodyDelta = useMemo(() => {
+    if (filteredBody.length < 2) return null
+    const sorted = [...filteredBody].sort((a, b) => a.date.localeCompare(b.date))
+    return {
+      latest: sorted[sorted.length - 1].weight,
+      delta:  +(sorted[sorted.length - 1].weight - sorted[0].weight).toFixed(1),
+      sparkline: sorted.map((b) => b.weight),
+    }
+  }, [filteredBody])
+
+  // Nutrition adherence — average protein
+  const proteinAvg = useMemo(() => {
+    const entries = Object.entries(nutritionLogs || {})
+      .filter(([d]) => new Date(d) >= cutoff)
+      .map(([, v]) => v.protein || 0)
+      .filter((v) => v > 0)
+    if (!entries.length) return null
+    return Math.round(entries.reduce((a, b) => a + b, 0) / entries.length)
+  }, [nutritionLogs, cutoff])
 
   return (
-    <Layout
-      title="Progress"
-      action={
-        <button onClick={() => navigate('/settings')} className="text-zinc-400 hover:text-white p-1">
-          <Settings size={20} />
-        </button>
-      }
-    >
-      {/* Tabs */}
-      <div className="flex gap-1 bg-surface-card rounded-xl p-1 mb-4">
-        {['overview', 'strength', 'body', 'nutrition'].map((t) => (
+    <Layout eyebrow="Stats" title="Progress.">
+      {/* Range pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-5 -mx-1 px-1">
+        {RANGES.map((r) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
-              tab === t ? 'bg-brand-500 text-white' : 'text-zinc-500 hover:text-zinc-300'
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`shrink-0 h-[34px] px-3.5 rounded-[10px] font-mono text-[10px] uppercase tracking-eyebrow transition-colors ${
+              range === r.key
+                ? 'bg-ink text-surface'
+                : 'bg-surface-elev text-ink-2 border border-surface-line-soft'
             }`}
           >
-            {t}
+            {r.key}
           </button>
         ))}
       </div>
 
-      {tab === 'overview' && (
-        <OverviewTab
-          streak={streak}
-          thisWeekCount={thisWeekCount}
-          lastWeekCount={lastWeekCount}
-          heatmapData={heatmapData}
-          weeklyVolume={weeklyVolume}
-          sessions={sessions}
-          profile={profile}
+      {/* Hero — total volume */}
+      <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-[18px] mb-3">
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
+            Total Volume · {weeklyVolume.length}W
+          </p>
+          {volumeTrend != null && (
+            <span className={`font-mono text-[11px] tabular-nums ${volumeTrend >= 0 ? 'text-good' : 'text-accent'}`}>
+              {volumeTrend >= 0 ? '▲' : '▼'} {volumeTrend >= 0 ? '+' : ''}{volumeTrend}%
+            </span>
+          )}
+        </div>
+        <p className="font-mono text-[52px] font-medium tabular-nums text-ink leading-none tracking-display">
+          {formatVolume(totalVolume)} <span className="text-[14px] text-ink-3 ml-1">· {wUnit}</span>
+        </p>
+
+        {/* Histogram */}
+        {weeklyVolume.length > 0 && (() => {
+          const max = Math.max(...weeklyVolume.map(([, v]) => v))
+          return (
+            <div className="mt-5">
+              <div className="flex items-end gap-1 h-16">
+                {weeklyVolume.map(([k, v], i) => {
+                  const h = max > 0 ? Math.max(8, (v / max) * 100) : 8
+                  const isLast = i === weeklyVolume.length - 1
+                  return (
+                    <div
+                      key={k}
+                      className="flex-1 rounded-[3px]"
+                      style={{
+                        height: `${h}%`,
+                        background: isLast ? '#FF2D2D' : '#1E1E22',
+                        border: isLast ? 'none' : '1px solid #24242A',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="font-mono text-[9px] text-ink-3 tabular-nums">W1</span>
+                <span className="font-mono text-[9px] text-ink-3 tabular-nums">W{Math.ceil(weeklyVolume.length / 2)}</span>
+                <span className="font-mono text-[9px] text-accent tabular-nums">W{weeklyVolume.length}</span>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* Two-up metric cards */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <MetricMini
+          label="Body Weight"
+          value={bodyDelta?.latest ?? '—'}
+          unit={wUnit}
+          delta={bodyDelta?.delta != null ? `${bodyDelta.delta > 0 ? '+' : ''}${bodyDelta.delta} · ${range}` : null}
+          deltaGood={bodyDelta && bodyDelta.delta < 0}
+          sparkline={bodyDelta?.sparkline || []}
         />
+        <MetricMini
+          label="Protein Avg"
+          value={proteinAvg ?? '—'}
+          unit="g · day"
+          delta={proteinAvg && targets.protein ? `${proteinAvg >= targets.protein ? '+' : ''}${proteinAvg - targets.protein}` : null}
+          deltaGood={proteinAvg && proteinAvg >= targets.protein}
+          sparkline={[]}
+        />
+      </div>
+
+      {/* Big lifts */}
+      <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-[18px] mb-3">
+        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Big Lifts</p>
+        {bigLifts.length === 0 ? (
+          <p className="font-mono text-[11px] text-ink-3 text-center py-3">Log workouts to track lifts.</p>
+        ) : (
+          <div className="space-y-3">
+            {bigLifts.slice(0, 5).map((lift) => (
+              <div key={lift.name} className="grid items-center" style={{ gridTemplateColumns: '1fr 80px 60px', gap: '12px' }}>
+                <div className="min-w-0">
+                  <p className="text-ink text-[14px] font-medium truncate">{lift.name}</p>
+                  <p className="font-mono text-[10px] tabular-nums text-ink-3 mt-0.5">
+                    {lift.delta > 0 ? `+${lift.delta} ${wUnit}` : 'No change'}
+                  </p>
+                </div>
+                <Sparkline data={lift.history} />
+                <p className="font-mono text-[18px] tabular-nums text-ink text-right leading-none">
+                  {lift.pr}<span className="text-ink-3 text-[10px] ml-0.5">{wUnit}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent PRs */}
+      {recentPRs.length > 0 && (
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Recent PRs</p>
+          <div className="space-y-2">
+            {recentPRs.slice(0, 3).map((pr, i) => (
+              <div key={i} className="bg-surface-card border border-surface-line-soft rounded-[16px] p-4">
+                <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums mb-1">{pr.date}</p>
+                <p className="text-ink text-[14px] font-medium mb-1">{pr.name}</p>
+                <div className="flex items-baseline justify-between">
+                  <p className="font-mono text-[26px] font-medium tabular-nums text-ink leading-none">
+                    {pr.weight}<span className="text-ink-3 text-[12px] ml-1">{wUnit} × {pr.reps}</span>
+                  </p>
+                  {pr.delta > 0 && (
+                    <span className="font-mono text-[12px] tabular-nums text-accent">◆ PR +{pr.delta}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-      {tab === 'strength' && <StrengthTab prs={prs} sessions={sessions} />}
-      {tab === 'body' && <BodyTab weightData={weightData} bodyLogs={bodyLogs} />}
-      {tab === 'nutrition' && <NutritionTab adherence={nutritionAdherence} targets={targets} />}
     </Layout>
   )
 }
 
-function OverviewTab({ streak, thisWeekCount, lastWeekCount, heatmapData, weeklyVolume, sessions, profile }) {
-  const goal = GOALS[profile.goal] || GOALS.fat_loss
-  const trend = thisWeekCount >= lastWeekCount ? 'brand' : 'yellow'
-  const trendMsg = thisWeekCount >= lastWeekCount
-    ? `${thisWeekCount} sessions this week — ${thisWeekCount > lastWeekCount ? 'more than last week. Keep pushing.' : 'same as last week. Stay consistent.'}`
-    : `${thisWeekCount} sessions vs ${lastWeekCount} last week. Let's pick it back up.`
-
+function MetricMini({ label, value, unit, delta, deltaGood, sparkline }) {
   return (
-    <div className="space-y-4">
-      {/* Key stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatBox icon={<Flame size={16} className="text-orange-400" />} value={streak} label="Day streak" />
-        <StatBox icon={<Calendar size={16} className="text-blue-400" />} value={thisWeekCount} label="This week" />
-        <StatBox icon={<Award size={16} className="text-yellow-400" />} value={sessions.length} label="Total" />
-      </div>
-
-      <CoachCard label="Weekly trend" message={trendMsg} color={trend} />
-
-      {/* Weekly volume chart */}
-      {weeklyVolume.length > 1 && (
-        <div className="bg-surface-card rounded-2xl p-4">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Sessions per Week</p>
-          <ResponsiveContainer width="100%" height={120}>
-            <BarChart data={weeklyVolume} barSize={20}>
-              <XAxis dataKey="week" tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{ background: '#1a1a1a', border: '1px solid #2e2e2e', borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: '#a1a1aa' }}
-                itemStyle={{ color: '#4ade80' }}
-              />
-              <Bar dataKey="sessions" radius={[4, 4, 0, 0]}>
-                {weeklyVolume.map((_, i) => (
-                  <Cell key={i} fill={i === weeklyVolume.length - 1 ? '#22c55e' : '#2e2e2e'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+    <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-[18px]">
+      <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-2">{label}</p>
+      <p className="font-mono text-[28px] font-medium tabular-nums text-ink leading-none">
+        {value}<span className="text-ink-3 text-[11px] ml-1">{unit}</span>
+      </p>
+      {delta && (
+        <p className={`font-mono text-[10px] tabular-nums mt-2 ${deltaGood ? 'text-good' : 'text-ink-3'}`}>
+          {delta}
+        </p>
       )}
-
-      {/* Activity heatmap */}
-      <div className="bg-surface-card rounded-2xl p-4">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Activity — Last 8 Weeks</p>
-        <div className="flex gap-1">
-          {heatmapData.map((week, wi) => (
-            <div key={wi} className="flex flex-col gap-1 flex-1">
-              {week.map((day, di) => (
-                <div
-                  key={di}
-                  className="rounded-sm aspect-square"
-                  style={{
-                    background: day.trained
-                      ? '#22c55e'
-                      : day.future
-                      ? 'transparent'
-                      : '#2e2e2e',
-                  }}
-                  title={day.date}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-3 mt-2">
-          <span className="flex items-center gap-1 text-[10px] text-zinc-600">
-            <span className="w-2 h-2 rounded-sm bg-surface-raised" /> Rest
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-zinc-600">
-            <span className="w-2 h-2 rounded-sm bg-brand-500" /> Trained
-          </span>
-        </div>
-      </div>
+      {sparkline.length > 1 && <Sparkline data={sparkline} className="mt-2" />}
     </div>
   )
 }
 
-function StrengthTab({ prs, sessions }) {
-  const [selected, setSelected] = useState(prs[0]?.name || '')
-  const selectedPR = prs.find((p) => p.name === selected)
-  const history = selectedPR?.history || []
-
+function Sparkline({ data, className = '' }) {
+  if (!data || data.length < 2) return <div className={`h-[30px] ${className}`} />
+  const min = Math.min(...data)
+  const max = Math.max(...data)
+  const range = max - min || 1
+  const w = 80, h = 30
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w
+    const y = h - ((v - min) / range) * h
+    return `${x},${y}`
+  }).join(' ')
   return (
-    <div className="space-y-4">
-      {prs.length === 0 ? (
-        <p className="text-zinc-500 text-sm text-center py-10">Log workouts to track strength PRs.</p>
-      ) : (
-        <>
-          {/* Exercise selector */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            {prs.slice(0, 8).map((p) => (
-              <button
-                key={p.name}
-                onClick={() => setSelected(p.name)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  selected === p.name ? 'bg-brand-500 text-white' : 'bg-surface-card text-zinc-400 hover:text-white'
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-
-          {selectedPR && (
-            <div className="bg-surface-card rounded-2xl p-4">
-              <div className="flex items-baseline justify-between mb-3">
-                <p className="text-sm font-semibold text-white">{selectedPR.name}</p>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-white">{selectedPR.pr} kg</p>
-                  <p className="text-xs text-zinc-500">Personal Record</p>
-                </div>
-              </div>
-              {history.length > 1 && (
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={history}>
-                    <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
-                    <Tooltip
-                      contentStyle={{ background: '#1a1a1a', border: '1px solid #2e2e2e', borderRadius: 10, fontSize: 12 }}
-                      labelStyle={{ color: '#a1a1aa' }}
-                      itemStyle={{ color: '#4ade80' }}
-                    />
-                    <Line type="monotone" dataKey="weight" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
-
-          {/* PR grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {prs.slice(0, 6).map((p) => (
-              <button
-                key={p.name}
-                onClick={() => setSelected(p.name)}
-                className={`bg-surface-card rounded-xl p-3 text-left border transition-colors ${selected === p.name ? 'border-brand-500/40' : 'border-surface-border'}`}
-              >
-                <p className="text-xs text-zinc-500 truncate mb-1">{p.name}</p>
-                <p className="text-lg font-bold text-white">{p.pr} <span className="text-xs font-normal text-zinc-500">kg</span></p>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <svg width={w} height={h} className={className}>
+      <polyline points={points} fill="none" stroke="#FF2D2D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 
-function BodyTab({ weightData, bodyLogs }) {
-  const latest   = bodyLogs[0]
-  const oldest   = bodyLogs[bodyLogs.length - 1]
-  const weightChange = latest?.weight && oldest?.weight
-    ? (latest.weight - oldest.weight).toFixed(1)
-    : null
-
-  return (
-    <div className="space-y-4">
-      {weightData.length > 1 ? (
-        <>
-          {weightChange !== null && (
-            <CoachCard
-              label={Number(weightChange) < 0 ? 'Weight Down' : Number(weightChange) > 0 ? 'Weight Up' : 'Weight Stable'}
-              message={
-                Number(weightChange) < 0
-                  ? `You've dropped ${Math.abs(weightChange)} kg since you started tracking. Progress is real.`
-                  : Number(weightChange) > 0
-                  ? `You're up ${weightChange} kg. ${latest?.waist ? 'Check your waist trend to gauge body comp.' : 'Track your waist to understand if it\'s muscle or fat.'}`
-                  : 'Your weight has been stable. Consistency is the foundation.'
-              }
-              color={Number(weightChange) < 0 ? 'brand' : Number(weightChange) > 0 ? 'yellow' : 'gray'}
-            />
-          )}
-
-          <div className="bg-surface-card rounded-2xl p-4">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Weight History</p>
-            <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={weightData}>
-                <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} width={32} />
-                <Tooltip
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #2e2e2e', borderRadius: 10, fontSize: 12 }}
-                  labelStyle={{ color: '#a1a1aa' }}
-                  itemStyle={{ color: '#4ade80' }}
-                />
-                <Line type="monotone" dataKey="weight" stroke="#22c55e" strokeWidth={2.5} dot={{ fill: '#22c55e', r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </>
-      ) : (
-        <p className="text-zinc-500 text-sm text-center py-10">Log body measurements to track trends.</p>
-      )}
-    </div>
-  )
+function formatVolume(v) {
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M'
+  if (v >= 1000)      return (v / 1000).toFixed(1) + 'K'
+  return String(Math.round(v))
 }
 
-function NutritionTab({ adherence, targets }) {
-  const avgCal  = adherence.length ? Math.round(adherence.reduce((a, d) => a + d.calories, 0) / adherence.length) : 0
-  const avgProt = adherence.length ? Math.round(adherence.reduce((a, d) => a + d.protein,  0) / adherence.length) : 0
-  const onTrackDays = adherence.filter((d) => d.calories >= targets.calories * 0.85 && d.calories <= targets.calories * 1.15).length
-
-  return (
-    <div className="space-y-4">
-      {adherence.length === 0 ? (
-        <p className="text-zinc-500 text-sm text-center py-10">Log meals to see nutrition trends.</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-3 gap-3">
-            <StatBox value={avgCal}  label="Avg kcal/day" />
-            <StatBox value={`${avgProt}g`}  label="Avg protein" />
-            <StatBox value={`${onTrackDays}/${adherence.length}`} label="On-target days" />
-          </div>
-
-          <div className="bg-surface-card rounded-2xl p-4">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Daily Calories (last 14d)</p>
-            <ResponsiveContainer width="100%" height={130}>
-              <BarChart data={adherence} barSize={14}>
-                <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} width={32} />
-                <Tooltip
-                  contentStyle={{ background: '#1a1a1a', border: '1px solid #2e2e2e', borderRadius: 10, fontSize: 12 }}
-                  labelStyle={{ color: '#a1a1aa' }}
-                  itemStyle={{ color: '#fb923c' }}
-                />
-                <Bar dataKey="calories" radius={[3, 3, 0, 0]}>
-                  {adherence.map((d, i) => (
-                    <Cell key={i} fill={
-                      d.calories >= targets.calories * 0.85 && d.calories <= targets.calories * 1.15
-                        ? '#22c55e'
-                        : '#3f3f46'
-                    } />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            <p className="text-[10px] text-zinc-600 mt-1">Target: {targets.calories} kcal · Green = on track</p>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function StatBox({ icon, value, label }) {
-  return (
-    <div className="bg-surface-card rounded-xl p-3 text-center">
-      {icon && <div className="flex justify-center mb-1">{icon}</div>}
-      <p className="text-xl font-bold text-white">{value}</p>
-      <p className="text-[10px] text-zinc-500 mt-0.5">{label}</p>
-    </div>
-  )
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildHeatmap(sessions) {
-  const trainedSet = new Set(sessions.map((s) => s.date))
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  // Go back to the start of 8 weeks ago
-  const start = new Date(today)
-  start.setDate(start.getDate() - 7 * 8 + 1)
-
-  const weeks = []
-  let current = new Date(start)
-
-  for (let w = 0; w < 8; w++) {
-    const week = []
-    for (let d = 0; d < 7; d++) {
-      const dateStr = current.toISOString().slice(0, 10)
-      week.push({
-        date:    dateStr,
-        trained: trainedSet.has(dateStr),
-        future:  current > today,
-      })
-      current.setDate(current.getDate() + 1)
-    }
-    weeks.push(week)
-  }
-
-  return weeks
-}
-
-function buildWeeklyVolume(sessions) {
+function buildBigLifts(sessions) {
   const map = {}
-  sessions.forEach((s) => {
-    const d = new Date(s.date)
-    const wStart = new Date(d)
-    wStart.setDate(d.getDate() - d.getDay())
-    const key = wStart.toISOString().slice(5, 10)
-    map[key] = (map[key] || 0) + 1
-  })
-  return Object.entries(map)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-10)
-    .map(([week, sessions]) => ({ week, sessions }))
-}
-
-function buildPRs(sessions) {
-  const prMap = {}
-
-  sessions.forEach((s) => {
-    ;(s.exercises || []).forEach((ex) => {
-      if (!ex.name) return
-      ;(ex.sets || []).forEach((set) => {
+  for (const s of sessions) {
+    for (const ex of s.exercises || []) {
+      for (const set of ex.sets || []) {
+        if (!set.done) continue
         const w = Number(set.weight)
-        if (!w) return
+        if (!w) continue
         const key = ex.name
-        if (!prMap[key]) prMap[key] = { name: key, pr: 0, history: [] }
-        if (w > prMap[key].pr) prMap[key].pr = w
-        prMap[key].history.push({ date: s.date.slice(5), weight: w })
-      })
-    })
-  })
-
-  return Object.values(prMap)
-    .sort((a, b) => b.pr - a.pr)
-    .map((p) => ({
-      ...p,
-      history: p.history
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .reduce((acc, cur) => {
-          const last = acc[acc.length - 1]
-          if (!last || last.weight !== cur.weight) acc.push(cur)
-          return acc
-        }, []),
-    }))
-}
-
-function buildNutritionAdherence(logs, targets) {
-  const days = []
-  const today = new Date()
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const key = d.toISOString().slice(0, 10)
-    const data = logs[key] || { calories: 0, protein: 0 }
-    if (data.calories > 0) {
-      days.push({ date: key.slice(5), calories: data.calories, protein: data.protein })
+        if (!map[key]) map[key] = { name: key, pr: 0, first: w, history: [] }
+        if (w > map[key].pr) map[key].pr = w
+        map[key].history.push(w)
+      }
     }
   }
-  return days
+  return Object.values(map)
+    .map((l) => ({ ...l, delta: +(l.pr - l.first).toFixed(1) }))
+    .sort((a, b) => b.pr - a.pr)
+}
+
+function buildRecentPRs(sessions) {
+  const seen = {}
+  const prs = []
+  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date))
+  for (const s of sorted) {
+    for (const ex of s.exercises || []) {
+      for (const set of ex.sets || []) {
+        if (!set.done) continue
+        const w = Number(set.weight)
+        if (!w) continue
+        const prev = seen[ex.name] || 0
+        if (w > prev) {
+          prs.push({ name: ex.name, weight: w, reps: Number(set.reps) || 0, date: s.date, delta: +(w - prev).toFixed(1) })
+          seen[ex.name] = w
+        }
+      }
+    }
+  }
+  return prs.reverse()
 }

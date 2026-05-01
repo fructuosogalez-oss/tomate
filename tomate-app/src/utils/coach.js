@@ -55,59 +55,62 @@ export function calcTargets(profile) {
   return { calories: Math.max(1200, Math.round(calories)), protein }
 }
 
-// Returns a coach recommendation object based on check-in
-export function getDailyRecommendation({ checkin, profile, lastSessions = [] }) {
-  if (!checkin) {
+// Returns a coach recommendation object based on recent training only
+export function getDailyRecommendation({ profile, lastSessions = [] }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const trainedToday = lastSessions.some((s) => s.date === today)
+
+  // Count consecutive training days back from today
+  const dates = [...new Set(lastSessions.map((s) => s.date))].sort().reverse()
+  let consecutive = 0
+  let cur = new Date(); cur.setHours(0, 0, 0, 0)
+  for (const d of dates) {
+    const sd = new Date(d); sd.setHours(0, 0, 0, 0)
+    const diff = Math.round((cur - sd) / 86400000)
+    if (diff <= 1) { consecutive++; cur = sd } else break
+  }
+
+  if (trainedToday) {
     return {
-      intensity: 'normal',
-      label: 'Check in first',
-      message: "Log today's check-in so I can tailor your session.",
-      color: 'gray',
-      shouldTrain: true,
-    }
-  }
-
-  const { fatigue = 3, workDemand = 2, sleep = 3 } = checkin
-  const stress = fatigue + workDemand - sleep
-  // Count sessions in last 3 days
-  const recentDates = lastSessions.slice(0, 3).map((s) => s.date)
-  const consecutiveDays = recentDates.length
-
-  let rec = {
-    intensity: 'normal',
-    label: 'Train Normally',
-    message: "You're looking good. Hit your planned session at full effort.",
-    color: 'brand',
-    shouldTrain: true,
-  }
-
-  if (stress >= 6 || fatigue >= 4) {
-    rec = {
       intensity: 'recover',
-      label: 'Rest Day',
-      message: `You're running on fumes. ${fatigue >= 5 ? 'Fatigue is high' : 'Work has drained you'}. A full rest or light walk is the smartest move today.`,
-      color: 'gray',
+      label: 'Done Today',
+      message: "Today's session is logged. Stretch, hydrate, and recover.",
+      color: 'good',
       shouldTrain: false,
     }
-  } else if (stress >= 4 || (consecutiveDays >= 3 && fatigue >= 3)) {
-    rec = {
+  }
+
+  if (consecutive >= 3) {
+    return {
       intensity: 'light',
-      label: 'Light Session',
-      message: `You're a bit worn down. Go lighter today — 60–70% effort, focus on form and movement, not max weight.`,
+      label: 'Active Recovery',
+      message: `${consecutive} days in a row. A lighter session or rest day is smart today.`,
       color: 'yellow',
       shouldTrain: true,
     }
-  } else if (fatigue <= 2 && sleep >= 4 && workDemand <= 2) {
-    rec = {
-      intensity: 'hard',
-      label: 'Train Hard',
-      message: "You're rested and fresh. Push today — set some PRs, add weight, bring the intensity.",
-      color: 'brand',
-      shouldTrain: true,
+  }
+
+  if (consecutive === 0 && lastSessions.length > 0) {
+    const last = new Date(dates[0])
+    const days = Math.round((cur - last) / 86400000)
+    if (days >= 3) {
+      return {
+        intensity: 'normal',
+        label: 'Get Back',
+        message: `Last session ${days} days ago. Time to get back under the bar.`,
+        color: 'brand',
+        shouldTrain: true,
+      }
     }
   }
 
-  return rec
+  return {
+    intensity: 'normal',
+    label: "Today's Session",
+    message: 'Hit your planned session at full effort. Move with intent.',
+    color: 'brand',
+    shouldTrain: true,
+  }
 }
 
 export function getMotivationalMessage(profile, sessions) {
