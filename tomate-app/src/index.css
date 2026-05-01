@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,10 +10,7 @@
 }
 
 html {
-  font-size: 17px;        /* readable at arm's length without glasses */
-}
-@media (min-width: 480px) {
-  html { font-size: 18px; }
+  font-size: 16px;
 }
 
 html, body, #root {
@@ -24,11 +21,11 @@ html, body, #root {
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: #000;
-  color: #fff;
+  background: #0A0A0B;
+  color: #F4F4F5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  font-feature-settings: 'ss01', 'cv11';
+  font-feature-settings: 'cv11', 'ss01';
 }
 
 #root {
@@ -38,49 +35,88 @@ body {
   margin: 0 auto;
   min-height: 100%;
   position: relative;
-  background: #000;
+  background: #0A0A0B;
 }
 
 ::-webkit-scrollbar { width: 0; }
-::selection { background: #ef4444; color: #fff; }
+::selection { background: #FF2D2D; color: #fff; }
 
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
-.page-enter { animation: fadeSlideIn 0.18s ease-out; }
+/* ─── Typography utilities ────────────────────────────────────────────── */
+.font-display {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
 
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+.eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #62626A;
+}
+
+.eyebrow-accent {
+  color: #FF2D2D;
+}
+
+/* ─── Page transition ─────────────────────────────────────────────────── */
+.page-enter { animation: fadeSlideIn 0.18s ease-out; }
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.ring-animate { animation: pulse-ring 1.4s ease-in-out infinite; }
-@keyframes pulse-ring {
-  0%, 100% { opacity: 1; transform: scale(1);   }
-  50%       { opacity: 0.7; transform: scale(1.05); }
-}
-
-/* Display text — heavy, condensed feel */
-.font-display {
-  font-family: 'Bebas Neue', 'Inter', system-ui, sans-serif;
-  letter-spacing: 0.04em;
-}
-
-/* Hairline divider */
-.divider-y {
-  background: linear-gradient(90deg, transparent, #1f1f1f 30%, #1f1f1f 70%, transparent);
-  height: 1px;
-  width: 100%;
-}
-
-/* Subtle grain on cards */
-.grain {
-  position: relative;
-}
-.grain::before {
+/* ─── Pulse ring (CTA) ────────────────────────────────────────────────── */
+.pulse-ring::before {
   content: '';
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at 20% 0%, rgba(239,68,68,0.06), transparent 50%);
-  pointer-events: none;
+  position: absolute;
+  inset: 0;
   border-radius: inherit;
+  background: rgba(255, 45, 45, 0.4);
+  z-index: -1;
+  animation: pulse-ring 2s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* ─── Breathe (live indicator) ────────────────────────────────────────── */
+.breathe { animation: breathe 2s ease-in-out infinite; }
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+/* ─── Voice amplitude bars ────────────────────────────────────────────── */
+.amp-bar { animation: amp 700ms ease-in-out infinite; transform-origin: center; }
+@keyframes amp {
+  0%, 100% { transform: scaleY(0.35); }
+  50%       { transform: scaleY(1.0);  }
+}
+
+/* ─── Check pop ───────────────────────────────────────────────────────── */
+.check-pop { animation: check-pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes check-pop {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.15); }
+  100% { transform: scale(1);    }
+}
+
+/* ─── Card hairline border helper ─────────────────────────────────────── */
+.hairline {
+  border: 1px solid #1B1B20;
+}
+.hairline-strong {
+  border: 1px solid #24242A;
 }

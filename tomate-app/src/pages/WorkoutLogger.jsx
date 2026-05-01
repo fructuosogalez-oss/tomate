@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Timer, Plus, Trash2, Check, X, ChevronDown, ChevronUp,
-  ArrowLeft, CheckCircle2, Dumbbell
+  Timer, MoreHorizontal, Mic, ArrowRightLeft, AlertTriangle,
+  Check, X, Minus, Plus, ChevronRight, Dumbbell
 } from 'lucide-react'
 import RestTimer from '../components/RestTimer'
 import Button from '../components/Button'
@@ -11,16 +11,19 @@ import { weightUnit } from '../utils/units'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 
+const COMPOUND_RX = /(bench|squat|deadlift|overhead press|press|row)/i
+const restForExercise = (name) => COMPOUND_RX.test(name || '') ? 120 : 90
+
 export default function WorkoutLogger() {
   const navigate = useNavigate()
-  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, sessions, profile } = useStore()
-  const wUnit = weightUnit(profile).toUpperCase()
+  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, profile } = useStore()
+  const wUnit = weightUnit(profile)
   const [showTimer, setShowTimer] = useState(false)
-  const [elapsed, setElapsed] = useState(0)
+  const [restSeconds, setRestSeconds] = useState(90)
+  const [restNext, setRestNext] = useState(null)  // {exerciseName, weight, reps, setLabel}
   const [showFinish, setShowFinish] = useState(false)
   const [sessionNote, setSessionNote] = useState('')
-  const [expandedEx, setExpandedEx] = useState(0)  // first exercise expanded by default
-  const [showAddEx, setShowAddEx] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef(null)
 
   useEffect(() => {
@@ -31,92 +34,110 @@ export default function WorkoutLogger() {
     return () => clearInterval(intervalRef.current)
   }, [activeWorkout])
 
-  // When the currently expanded exercise has all sets done, auto-jump to the next
-  // incomplete exercise so the user always sees something actionable.
-  useEffect(() => {
-    if (!activeWorkout || expandedEx == null) return
-    const cur = activeWorkout.exercises[expandedEx]
-    if (!cur) return
-    const allDone = cur.sets.length > 0 && cur.sets.every((s) => s.done)
-    if (!allDone) return
-    const nextIdx = activeWorkout.exercises.findIndex((ex, i) =>
-      i > expandedEx && ex.sets.some((s) => !s.done)
-    )
-    if (nextIdx !== -1) {
-      // Small delay so the rest timer/toast feels natural
-      const t = setTimeout(() => setExpandedEx(nextIdx), 600)
-      return () => clearTimeout(t)
-    }
-  }, [activeWorkout, expandedEx])
-
   if (!activeWorkout) {
     return (
-      <div className="flex flex-col min-h-full items-center justify-center px-6 pb-10">
-        <Dumbbell size={40} className="text-zinc-700 mb-4" />
-        <p className="text-zinc-400 text-sm mb-6">No active workout session.</p>
+      <div className="flex flex-col min-h-full items-center justify-center px-6 pb-10 bg-surface">
+        <Dumbbell size={36} className="text-ink-4 mb-4" />
+        <p className="text-ink-2 text-[14px] mb-6">No active workout session.</p>
         <Button onClick={() => navigate('/workout')}>Go to Workouts</Button>
       </div>
     )
   }
 
-  const { exercises } = activeWorkout
+  // Identify the active exercise + active set
+  const exercises = activeWorkout.exercises
+  const exIdx = exercises.findIndex((ex) => ex.sets.some((s) => !s.done))
+  const safeExIdx = exIdx === -1 ? exercises.length - 1 : exIdx
+  const cur = exercises[safeExIdx] || exercises[0]
+  const setIdx = cur ? Math.max(0, cur.sets.findIndex((s) => !s.done)) : 0
+  const curSet = cur?.sets?.[setIdx]
+
   const totalSets = exercises.reduce((a, ex) => a + ex.sets.length, 0)
   const doneSets  = exercises.reduce((a, ex) => a + ex.sets.filter((s) => s.done).length, 0)
+  const setsPct   = totalSets ? Math.round((doneSets / totalSets) * 100) : 0
+  const allDone   = doneSets === totalSets && totalSets > 0
+
+  // Auto-fill weight + reps from previous set if blank
+  const prevDoneSet = cur?.sets?.slice(0, setIdx).reverse().find((s) => s.done)
+  const displayWeight = curSet?.weight !== '' && curSet?.weight != null ? curSet.weight : (prevDoneSet?.weight ?? cur?.weight ?? '')
+  const displayReps   = curSet?.reps   !== '' && curSet?.reps   != null ? curSet.reps   : (prevDoneSet?.reps   ?? parseInt(String(cur?.reps).split('-')[0]) ?? '')
 
   const mins = String(Math.floor(elapsed / 60)).padStart(2, '0')
   const secs = String(elapsed % 60).padStart(2, '0')
 
-  const updateSet = (exIdx, setIdx, field, value) => {
-    const exs = exercises.map((ex, ei) => {
-      if (ei !== exIdx) return ex
+  // ── Handlers ──────────────────────────────────────────────────────────
+  const updateActiveSet = (field, value) => {
+    const next = exercises.map((ex, ei) => {
+      if (ei !== safeExIdx) return ex
+      return { ...ex, sets: ex.sets.map((s, si) => si === setIdx ? { ...s, [field]: value } : s) }
+    })
+    updateActiveWorkout({ exercises: next })
+  }
+
+  const adjustWeight = (delta) => {
+    const cur = Number(displayWeight) || 0
+    updateActiveSet('weight', String(Math.max(0, +(cur + delta).toFixed(2))))
+  }
+
+  const adjustReps = (delta) => {
+    const cur = Number(displayReps) || 0
+    updateActiveSet('reps', String(Math.max(0, cur + delta)))
+  }
+
+  const logSet = () => {
+    if (!cur || !curSet) return
+    // make sure weight + reps are persisted (in case user never typed but used auto-fill)
+    const next = exercises.map((ex, ei) => {
+      if (ei !== safeExIdx) return ex
       return {
         ...ex,
-        sets: ex.sets.map((s, si) => si === setIdx ? { ...s, [field]: value } : s),
+        sets: ex.sets.map((s, si) =>
+          si === setIdx
+            ? { ...s, weight: String(displayWeight ?? ''), reps: String(displayReps ?? ''), done: true }
+            : s
+        ),
       }
     })
-    updateActiveWorkout({ exercises: exs })
-  }
+    updateActiveWorkout({ exercises: next })
 
-  const addSet = (exIdx) => {
-    const exs = exercises.map((ex, ei) => {
-      if (ei !== exIdx) return ex
-      const last = ex.sets[ex.sets.length - 1] || {}
-      return {
-        ...ex,
-        sets: [...ex.sets, { id: nanoid(), index: ex.sets.length + 1, reps: last.reps || '', weight: last.weight || '', done: false }],
+    // Determine next set + rest preview
+    const updatedEx = next[safeExIdx]
+    const nextSetIdx = updatedEx.sets.findIndex((s) => !s.done)
+    let nextEx, nextSet, nextSetLabel
+    if (nextSetIdx !== -1) {
+      nextEx = updatedEx
+      nextSet = updatedEx.sets[nextSetIdx]
+      nextSetLabel = `Set ${nextSetIdx + 1} / ${updatedEx.sets.length}`
+    } else {
+      const nextExIdx = next.findIndex((ex, i) => i > safeExIdx && ex.sets.some((s) => !s.done))
+      if (nextExIdx !== -1) {
+        nextEx = next[nextExIdx]
+        nextSet = nextEx.sets.find((s) => !s.done)
+        nextSetLabel = `Set 1 / ${nextEx.sets.length}`
       }
-    })
-    updateActiveWorkout({ exercises: exs })
-  }
-
-  const removeSet = (exIdx, setIdx) => {
-    const exs = exercises.map((ex, ei) => {
-      if (ei !== exIdx) return ex
-      if (ex.sets.length <= 1) return ex
-      return { ...ex, sets: ex.sets.filter((_, si) => si !== setIdx) }
-    })
-    updateActiveWorkout({ exercises: exs })
-  }
-
-  const addExercise = (name) => {
-    if (!name.trim()) return
-    const newEx = {
-      id: nanoid(), name: name.trim(), notes: '',
-      sets: [{ id: nanoid(), index: 1, reps: '', weight: '', done: false }],
     }
-    updateActiveWorkout({ exercises: [...exercises, newEx] })
-  }
 
-  const removeExercise = (exIdx) => {
-    updateActiveWorkout({ exercises: exercises.filter((_, i) => i !== exIdx) })
+    if (nextEx && nextSet) {
+      setRestNext({
+        exerciseName: nextEx.name,
+        weight: nextSet.weight || displayWeight,
+        reps:   nextSet.reps   || displayReps,
+        setLabel: nextSetLabel,
+      })
+      setRestSeconds(restForExercise(updatedEx.name))
+      setShowTimer(true)
+      if (navigator.vibrate) navigator.vibrate(40)
+    } else {
+      // workout complete
+      if (navigator.vibrate) navigator.vibrate([30, 60, 30, 60, 80])
+    }
   }
 
   const finish = () => {
-    const duration = elapsed
     const session = {
       ...activeWorkout,
       id: nanoid(),
-      duration,
+      duration: elapsed,
       notes: sessionNote,
       intensity: 'normal',
     }
@@ -125,89 +146,268 @@ export default function WorkoutLogger() {
     navigate('/workout')
   }
 
+  const planDayName = activeWorkout.planDayName || 'Workout'
+
   return (
-    <div className="flex flex-col min-h-full">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-40 bg-surface/95 backdrop-blur px-4 pt-12 pb-3 border-b border-surface-border">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setShowFinish(true)} className="text-zinc-400 hover:text-white p-2 -ml-2">
-            <ArrowLeft size={22} />
-          </button>
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-wider-x font-bold text-zinc-500 truncate max-w-[180px]">{activeWorkout.planDayName}</p>
-            <p className="text-2xl font-black text-white tabular-nums leading-tight">{mins}:{secs}</p>
-          </div>
+    <div className="flex flex-col min-h-full bg-surface">
+      {/* ── Sticky header ─────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-30 bg-surface/95 backdrop-blur px-5 pt-12 pb-4 border-b border-surface-line-soft">
+        <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() => setShowTimer(true)}
-            className="flex items-center gap-2 bg-surface-raised px-3 py-2 text-xs font-bold uppercase tracking-wider-x text-white hover:bg-surface-border"
+            onClick={() => setShowFinish(true)}
+            className="flex items-center gap-2 bg-surface-elev px-3 py-1.5 rounded-pill border border-surface-line-soft"
           >
-            <Timer size={16} /> Rest
+            <span className="w-1.5 h-1.5 rounded-full bg-accent breathe" />
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-ink tabular-nums">
+              Live · {mins}:{secs}
+            </span>
           </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => { setRestNext(null); setRestSeconds(90); setShowTimer(true) }}
+              className="w-9 h-9 rounded-md flex items-center justify-center text-ink-2 hover:text-ink hover:bg-surface-elev"
+            >
+              <Timer size={18} />
+            </button>
+            <button
+              onClick={() => setShowFinish(true)}
+              className="w-9 h-9 rounded-md flex items-center justify-center text-ink-2 hover:text-ink hover:bg-surface-elev"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="h-1.5 bg-surface-raised overflow-hidden">
+        {/* Multi-segment progress bar */}
+        <div className="flex gap-1 h-[3px] mb-2">
+          {exercises.map((ex, i) => {
+            const ed = ex.sets.filter((s) => s.done).length
+            const pct = ex.sets.length ? (ed / ex.sets.length) * 100 : 0
+            const isActive = i === safeExIdx
+            const allEx = ed === ex.sets.length && ex.sets.length > 0
+            return (
+              <div
+                key={i}
+                className="flex-1 rounded-full overflow-hidden"
+                style={{
+                  flexGrow: ex.sets.length || 1,
+                  background: allEx
+                    ? '#FF2D2D'
+                    : isActive
+                      ? `linear-gradient(90deg, #FF2D2D ${pct}%, rgba(255,45,45,0.18) ${pct}%)`
+                      : pct > 0
+                        ? `linear-gradient(90deg, #FF2D2D ${pct}%, #24242A ${pct}%)`
+                        : '#24242A',
+                  border: isActive && !allEx ? '1px solid rgba(255,45,45,0.35)' : 'none',
+                }}
+              />
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 truncate flex-1">
+            Ex · {String(safeExIdx + 1).padStart(2, '0')} / {String(exercises.length).padStart(2, '0')} · {planDayName}
+          </p>
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-2 tabular-nums">
+            {doneSets} / {totalSets} Sets · {setsPct}%
+          </p>
+        </div>
+      </div>
+
+      {/* ── Hero block ───────────────────────────────────────────────── */}
+      <div className="px-5 pt-5">
+        {!allDone && cur && curSet ? (
           <div
-            className="h-full bg-brand-500 transition-all"
-            style={{ width: totalSets ? `${(doneSets / totalSets) * 100}%` : '0%' }}
-          />
+            className="relative rounded-[20px] p-5 border border-surface-line-soft overflow-hidden"
+            style={{ background: 'linear-gradient(180deg, rgba(255,45,45,0.06) 0%, transparent 50%)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent breathe" />
+                Now · Set {setIdx + 1} of {cur.sets.length}
+              </p>
+              <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums">
+                Target {cur.reps || '—'} reps
+              </p>
+            </div>
+
+            <h2 className="font-display text-[32px] italic text-ink leading-none tracking-display truncate mb-1">
+              {cur.name}
+            </h2>
+            <p className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3 mb-5">
+              {inferCue(cur.name)}
+            </p>
+
+            {/* Stepper chips */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <Stepper
+                label={`Weight · ${wUnit.toUpperCase()}`}
+                value={displayWeight}
+                onMinus={() => adjustWeight(-2.5)}
+                onPlus={() => adjustWeight(+2.5)}
+                onChange={(v) => updateActiveSet('weight', v)}
+                prev={prevDoneSet?.weight}
+              />
+              <Stepper
+                label="Reps"
+                value={displayReps}
+                onMinus={() => adjustReps(-1)}
+                onPlus={() => adjustReps(+1)}
+                onChange={(v) => updateActiveSet('reps', v)}
+                prev={prevDoneSet?.reps}
+              />
+            </div>
+
+            {/* Giant LOG SET button */}
+            <button
+              onClick={logSet}
+              className="relative w-full bg-accent text-white py-5 rounded-[20px] active:scale-[0.98] transition-transform shadow-[0_12px_32px_-8px_rgba(255,45,45,0.5)]"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-[20px] border-2 border-white/15 animate-pulse-ring pointer-events-none"
+              />
+              <div className="flex items-center justify-center gap-3 relative">
+                <Check size={28} strokeWidth={2.4} />
+                <div className="text-left">
+                  <p className="font-sans font-semibold text-[19px] leading-none">Log Set</p>
+                  <p className="font-mono text-[12px] tabular-nums text-white/85 mt-1">
+                    {displayWeight || '—'}{wUnit} × {displayReps || '—'}
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            {/* Secondary actions */}
+            <div className="flex gap-2 mt-3">
+              <SecondaryAction icon={<Mic size={14} />} label="Voice" onClick={() => alert('Voice logging is configured in Settings → Voice Coach')} />
+              <SecondaryAction icon={<ArrowRightLeft size={14} />} label="Swap" onClick={() => alert('Exercise swap coming soon')} />
+              <SecondaryAction icon={<AlertTriangle size={14} />} label="Pain" onClick={() => alert('Log pain — coming soon')} />
+            </div>
+          </div>
+        ) : (
+          <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-6 text-center">
+            <Check size={32} strokeWidth={2.4} className="text-accent mx-auto mb-3" />
+            <h2 className="font-display text-[28px] italic text-ink mb-2">All sets done.</h2>
+            <p className="text-ink-2 text-[14px] mb-4">Great session. Ready to wrap up?</p>
+            <Button onClick={() => setShowFinish(true)} className="w-full">Finish Workout</Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Sets table ───────────────────────────────────────────────── */}
+      {cur && (
+        <div className="px-5 mt-5">
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-2">All Sets · {cur.name}</p>
+          <div className="bg-surface-card border border-surface-line-soft rounded-[20px] overflow-hidden">
+            {cur.sets.map((set, si) => {
+              const isCurrent = si === setIdx && !allDone
+              const isDone = set.done
+              const isUpcoming = !isDone && !isCurrent
+              return (
+                <div
+                  key={set.id || si}
+                  className="grid items-center px-4 py-3.5"
+                  style={{
+                    gridTemplateColumns: '36px 1fr 1fr 44px',
+                    gap: '8px',
+                    background: isCurrent ? 'rgba(255,45,45,0.06)' : 'transparent',
+                    borderBottom: si < cur.sets.length - 1 ? '1px solid #1B1B20' : 'none',
+                    boxShadow: isCurrent ? 'inset 2px 0 0 #FF2D2D' : 'none',
+                  }}
+                >
+                  <span className={`font-mono text-[11px] tabular-nums ${isCurrent ? 'text-accent' : isDone ? 'text-ink' : 'text-ink-3'}`}>
+                    {String(si + 1).padStart(2, '0')}
+                  </span>
+                  <span className={`font-mono text-[16px] tabular-nums ${isUpcoming ? 'text-ink-3' : 'text-ink'}`}>
+                    {set.weight || (isCurrent ? displayWeight || '—' : '—')}<span className="text-ink-3 text-[11px] ml-1">{wUnit}</span>
+                  </span>
+                  <span className={`font-mono text-[16px] tabular-nums ${isUpcoming ? 'text-ink-3' : 'text-ink'}`}>
+                    {set.reps || (isCurrent ? displayReps || '—' : '—')}<span className="text-ink-3 text-[11px] ml-1">reps</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      const next = exercises.map((ex, ei) => {
+                        if (ei !== safeExIdx) return ex
+                        return { ...ex, sets: ex.sets.map((s, i) => i === si ? { ...s, done: !s.done } : s) }
+                      })
+                      updateActiveWorkout({ exercises: next })
+                    }}
+                    className="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
+                    style={{
+                      background: isDone ? '#FF2D2D' : 'transparent',
+                      border: isDone ? 'none' : isCurrent ? '1.5px dashed rgba(255,45,45,0.7)' : '1.5px solid #24242A',
+                    }}
+                  >
+                    {isDone && <Check size={14} strokeWidth={3} className="text-white check-pop" />}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         </div>
-        <p className="text-right text-xs font-bold uppercase tracking-wider-x text-zinc-500 mt-1.5 tabular-nums">{doneSets} / {totalSets} Sets</p>
-      </div>
+      )}
 
-      <div className="flex-1 px-4 pt-4 space-y-3" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
-        {exercises.map((ex, ei) => (
-          <ExerciseCard
-            key={ex.id}
-            ex={ex}
-            exIdx={ei}
-            expanded={expandedEx === ei}
-            onToggle={() => setExpandedEx(expandedEx === ei ? null : ei)}
-            onUpdateSet={updateSet}
-            onAddSet={addSet}
-            onRemoveSet={removeSet}
-            onRemoveEx={removeExercise}
-            onTimerOpen={() => setShowTimer(true)}
-            weightLabel={wUnit}
-          />
-        ))}
+      {/* ── Up next card ─────────────────────────────────────────────── */}
+      {(() => {
+        const nextIdx = exercises.findIndex((ex, i) => i > safeExIdx && ex.sets.some((s) => !s.done))
+        if (nextIdx === -1) return null
+        const nx = exercises[nextIdx]
+        const targetReps = parseInt(String(nx.reps).split('-')[0]) || nx.reps || ''
+        return (
+          <div className="px-5 mt-3 mb-6">
+            <button
+              className="w-full bg-surface-card border border-surface-line-soft rounded-[16px] px-4 py-3.5 flex items-center gap-4 text-left active:bg-surface-elev"
+            >
+              <span className="font-mono text-[11px] tabular-nums text-ink-3 w-7">
+                {String(nextIdx + 1).padStart(2, '0')}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-0.5">Up Next</p>
+                <p className="text-ink text-[16px] font-medium truncate">{nx.name}</p>
+                <p className="font-mono text-[11px] tabular-nums text-ink-3 mt-0.5">
+                  {nx.sets.length} sets · {targetReps} reps
+                </p>
+              </div>
+              <ChevronRight size={16} className="text-ink-3" />
+            </button>
+          </div>
+        )
+      })()}
 
-        <AddExerciseButton onAdd={addExercise} show={showAddEx} setShow={setShowAddEx} />
-      </div>
+      {/* ── Rest timer overlay ───────────────────────────────────────── */}
+      {showTimer && (
+        <RestTimer
+          seconds={restSeconds}
+          next={restNext}
+          unit={wUnit}
+          onClose={() => setShowTimer(false)}
+        />
+      )}
 
-      {/* Finish button */}
-      <div
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pt-3 bg-gradient-to-t from-surface via-surface/95 to-transparent z-30"
-        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
-      >
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={() => setShowFinish(true)}
-          disabled={doneSets === 0}
-        >
-          <CheckCircle2 size={18} /> Finish Workout
-        </Button>
-      </div>
-
-      {/* Rest timer */}
-      {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
-
-      {/* Finish confirm */}
+      {/* ── Finish dialog ────────────────────────────────────────────── */}
       {showFinish && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center" onClick={() => setShowFinish(false)}>
-          <div className="bg-surface-card w-full max-w-[480px] rounded-t-2xl p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-semibold text-white mb-1">Finish Workout?</h2>
-            <p className="text-xs text-zinc-500 mb-4">{doneSets} sets done · {mins}:{secs} elapsed</p>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end" onClick={() => setShowFinish(false)}>
+          <div
+            className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-6"
+            style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent mb-2">Wrap Up</p>
+            <h2 className="font-display text-[28px] italic text-ink leading-none tracking-display mb-1">Finish workout?</h2>
+            <p className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3 mb-4 tabular-nums">
+              {doneSets} of {totalSets} Sets · {mins}:{secs}
+            </p>
             <textarea
-              className="w-full bg-surface-raised border border-surface-border rounded-xl px-3 py-3 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-brand-500 resize-none mb-4"
+              className="w-full bg-surface-elev border border-surface-line-soft rounded-md px-3 py-3 text-ink text-[15px] placeholder:text-ink-4 focus:outline-none focus:border-accent resize-none mb-4"
               rows={2}
               placeholder="Session notes (optional)"
               value={sessionNote}
               onChange={(e) => setSessionNote(e.target.value)}
             />
             <Button size="lg" className="w-full mb-2" onClick={finish}>Save Session</Button>
-            <Button variant="secondary" size="lg" className="w-full" onClick={() => setShowFinish(false)}>
+            <Button variant="ghost" size="lg" className="w-full" onClick={() => setShowFinish(false)}>
               Keep Going
             </Button>
           </div>
@@ -217,128 +417,63 @@ export default function WorkoutLogger() {
   )
 }
 
-function ExerciseCard({ ex, exIdx, expanded, onToggle, onUpdateSet, onAddSet, onRemoveSet, onRemoveEx, onTimerOpen, weightLabel = 'KG' }) {
-  const doneSets = ex.sets.filter((s) => s.done).length
-  const allDone = doneSets === ex.sets.length && ex.sets.length > 0
-
+// ─── Subcomponents ────────────────────────────────────────────────────────
+function Stepper({ label, value, onMinus, onPlus, onChange, prev }) {
   return (
-    <div className={`bg-surface-card border ${expanded ? 'border-brand-500/40' : 'border-surface-border'} overflow-hidden transition-colors`}>
-      {/* Header */}
-      <button className="w-full flex items-center justify-between px-4 py-4" onClick={onToggle}>
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className={`text-sm font-black tabular-nums px-2.5 py-1 ${allDone ? 'bg-brand-500 text-white' : 'bg-surface-raised text-zinc-400'}`}>
-            {doneSets}/{ex.sets.length}
-          </span>
-          <p className={`text-base font-bold truncate uppercase tracking-wider-x ${allDone ? 'text-zinc-500 line-through' : 'text-white'}`}>{ex.name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {!expanded && !allDone && (
-            <span className="text-xs font-bold uppercase tracking-widest-x text-brand-500">Tap</span>
-          )}
-          <button onClick={(e) => { e.stopPropagation(); onRemoveEx(exIdx) }} className="text-zinc-700 hover:text-red-400 p-1.5">
-            <Trash2 size={16} />
-          </button>
-          {expanded ? <ChevronUp size={20} className="text-brand-500" /> : <ChevronDown size={20} className="text-zinc-500" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="px-4 pb-5 border-t border-surface-border pt-4">
-          {/* Set headers */}
-          <div className="grid grid-cols-[2.5rem_1fr_1fr_3.5rem] gap-2 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider-x text-zinc-500 text-center">Set</span>
-            <span className="text-xs font-bold uppercase tracking-wider-x text-zinc-500 text-center">{weightLabel}</span>
-            <span className="text-xs font-bold uppercase tracking-wider-x text-zinc-500 text-center">Reps</span>
-            <span />
-          </div>
-
-          {ex.sets.map((set, si) => (
-            <div key={set.id} className="grid grid-cols-[2.5rem_1fr_1fr_3.5rem] gap-2 mb-2 items-center">
-              <span className={`text-xl font-black tabular-nums text-center ${set.done ? 'text-brand-500' : 'text-zinc-600'}`}>{si + 1}</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                className={`bg-surface-raised border-2 rounded-md px-2 py-3 text-2xl font-black tabular-nums text-white text-center focus:outline-none focus:border-brand-500 transition-colors ${set.done ? 'border-brand-500/50' : 'border-surface-border'}`}
-                placeholder="—"
-                value={set.weight}
-                onChange={(e) => onUpdateSet(exIdx, si, 'weight', e.target.value)}
-              />
-              <input
-                type="number"
-                inputMode="numeric"
-                className={`bg-surface-raised border-2 rounded-md px-2 py-3 text-2xl font-black tabular-nums text-white text-center focus:outline-none focus:border-brand-500 transition-colors ${set.done ? 'border-brand-500/50' : 'border-surface-border'}`}
-                placeholder="—"
-                value={set.reps}
-                onChange={(e) => onUpdateSet(exIdx, si, 'reps', e.target.value)}
-              />
-              <button
-                onClick={() => {
-                  onUpdateSet(exIdx, si, 'done', !set.done)
-                  if (!set.done) onTimerOpen()
-                }}
-                className={`w-14 h-14 rounded-md flex items-center justify-center transition-colors active:scale-95 ${
-                  set.done ? 'bg-brand-500 text-white shadow-md shadow-brand-500/40' : 'bg-surface-raised text-zinc-500 hover:text-white border-2 border-surface-border'
-                }`}
-              >
-                <Check size={24} strokeWidth={3} />
-              </button>
-            </div>
-          ))}
-
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => onAddSet(exIdx)}
-              className="flex-1 py-3 rounded-md border-2 border-dashed border-surface-border text-zinc-500 text-sm font-bold uppercase tracking-wider-x hover:border-brand-500/40 hover:text-brand-500 transition-colors flex items-center justify-center gap-1"
-            >
-              <Plus size={16} /> Add Set
-            </button>
-            {ex.sets.length > 1 && (
-              <button
-                onClick={() => onRemoveSet(exIdx, ex.sets.length - 1)}
-                className="px-4 rounded-md border-2 border-surface-border text-zinc-600 hover:text-red-400 transition-colors"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="bg-surface-elev border border-surface-line-soft rounded-[14px] px-3 py-3">
+      <p className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3 mb-2">{label}</p>
+      <div className="flex items-center justify-between gap-1">
+        <button
+          onClick={onMinus}
+          className="w-8 h-8 rounded-md bg-surface flex items-center justify-center text-ink-2 active:scale-95 active:bg-surface-card"
+          style={{ touchAction: 'manipulation' }}
+        >
+          <Minus size={14} strokeWidth={2.4} />
+        </button>
+        <input
+          type="number"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 min-w-0 bg-transparent text-center font-mono text-[24px] tabular-nums text-ink focus:outline-none leading-none"
+          placeholder="—"
+        />
+        <button
+          onClick={onPlus}
+          className="w-8 h-8 rounded-md bg-surface flex items-center justify-center text-ink-2 active:scale-95 active:bg-surface-card"
+          style={{ touchAction: 'manipulation' }}
+        >
+          <Plus size={14} strokeWidth={2.4} />
+        </button>
+      </div>
+      <p className="font-mono text-[10px] tabular-nums text-ink-4 text-center mt-1.5">
+        prev {prev != null && prev !== '' ? prev : '—'}
+      </p>
     </div>
   )
 }
 
-function AddExerciseButton({ onAdd, show, setShow }) {
-  const [name, setName] = useState('')
-
-  const submit = () => {
-    onAdd(name)
-    setName('')
-    setShow(false)
-  }
-
-  if (!show) {
-    return (
-      <button
-        onClick={() => setShow(true)}
-        className="w-full py-3 rounded-2xl border border-dashed border-surface-border text-zinc-500 text-sm hover:border-brand-500/40 hover:text-brand-400 transition-colors flex items-center justify-center gap-2"
-      >
-        <Plus size={16} /> Add Exercise
-      </button>
-    )
-  }
-
+function SecondaryAction({ icon, label, onClick }) {
   return (
-    <div className="bg-surface-card rounded-2xl p-4 flex gap-2">
-      <input
-        autoFocus
-        className="flex-1 bg-surface-raised border border-surface-border rounded-xl px-3 py-2 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-brand-500"
-        placeholder="Exercise name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && submit()}
-      />
-      <Button size="sm" onClick={submit}>Add</Button>
-      <button onClick={() => setShow(false)} className="text-zinc-500 p-1"><X size={16} /></button>
-    </div>
+    <button
+      onClick={onClick}
+      className="flex-1 h-11 rounded-pill bg-surface-elev border border-surface-line-soft flex items-center justify-center gap-1.5 text-ink-2 hover:text-ink active:scale-[0.98] transition-all"
+    >
+      {icon}
+      <span className="font-mono text-[11px] uppercase tracking-eyebrow">{label}</span>
+    </button>
   )
+}
+
+function inferCue(name) {
+  const n = (name || '').toLowerCase()
+  if (n.includes('bench')) return 'Flat · Barbell'
+  if (n.includes('squat')) return 'Back · Barbell'
+  if (n.includes('deadlift')) return 'Conventional · Barbell'
+  if (n.includes('overhead') || n.includes('ohp')) return 'Standing · Barbell'
+  if (n.includes('row')) return 'Bent over'
+  if (n.includes('curl')) return 'Strict form'
+  if (n.includes('press')) return 'Controlled'
+  if (n.includes('pull')) return 'Full range'
+  return 'Focus on form'
 }

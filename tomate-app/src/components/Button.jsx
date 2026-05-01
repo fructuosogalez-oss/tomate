@@ -1,16 +1,24 @@
+/**
+ * Button variants matching the Gym IA design language:
+ * - primary: solid red, mono uppercase, glow shadow
+ * - secondary: bg-elev with hairline, used for chips/secondary actions
+ * - ghost: transparent, line border (sign-out style)
+ * - outline: pill, bg-elev, used for inline actions
+ */
 export default function Button({ children, variant = 'primary', size = 'md', className = '', ...props }) {
-  const base = 'font-bold transition-all active:scale-[0.97] flex items-center justify-center gap-2 disabled:opacity-30 uppercase tracking-wider-x'
+  const base = 'font-mono uppercase tracking-eyebrow-2 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-30 select-none'
   const sizes = {
-    sm: 'px-3 py-2 text-[11px] rounded-lg',
-    md: 'px-4 py-3 text-xs rounded-lg',
-    lg: 'px-5 py-4 text-sm rounded-lg',
+    sm: 'px-3 py-2.5 text-[11px] rounded-md',
+    md: 'px-4 py-3.5 text-[12px] rounded-lg',
+    lg: 'px-5 py-5 text-[13px] rounded-[20px] font-medium',
+    xl: 'px-6 py-6 text-[14px] rounded-[20px] font-medium',
   }
   const variants = {
-    primary:   'bg-brand-500 text-white hover:bg-brand-600 shadow-lg shadow-brand-500/30',
-    secondary: 'bg-surface-raised text-white border border-surface-border hover:border-zinc-600',
-    danger:    'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20',
-    ghost:     'text-zinc-300 hover:text-white hover:bg-surface-raised',
-    outline:   'bg-transparent text-white border border-white hover:bg-white hover:text-black',
+    primary:   'bg-accent text-white shadow-[0_12px_32px_-8px_rgba(255,45,45,0.4)] hover:bg-accent-dim',
+    secondary: 'bg-surface-elev text-ink border border-surface-line-soft hover:bg-surface-card',
+    ghost:     'bg-transparent text-ink border border-surface-line hover:bg-surface-elev',
+    outline:   'bg-surface-elev text-ink-2 border border-surface-line-soft rounded-pill hover:text-ink',
+    accent:    'bg-accent-soft text-accent border border-accent-line hover:bg-accent/20',
   }
   return (
     <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props}>

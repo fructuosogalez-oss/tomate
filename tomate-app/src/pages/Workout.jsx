@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, Trash2, Dumbbell, Play, Pencil, Check } from 'lucide-react'
+import { Plus, ChevronRight, Trash2, Dumbbell, Play, Pencil, Check, X } from 'lucide-react'
 import Layout from '../components/Layout'
 import Button from '../components/Button'
 import CoachCard from '../components/CoachCard'
 import { useStore } from '../store/useStore'
 import { getDailyRecommendation } from '../utils/coach'
 import { generateDefaultPlan } from '../utils/workoutPlans'
+import { weightUnit } from '../utils/units'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 const today = () => new Date().toISOString().slice(0, 10)
@@ -23,17 +24,16 @@ export default function Workout() {
   const [newPlanName, setNewPlanName] = useState('')
   const [expandedPlan, setExpandedPlan] = useState(activePlanId)
 
-  const activePlan = workoutPlans.find((p) => p.id === activePlanId) || null
   const todayCheckin = checkins[today()] || null
   const rec = getDailyRecommendation({ checkin: todayCheckin, profile, lastSessions: sessions })
+  const wUnit = weightUnit(profile)
 
   const createPlan = () => {
     if (!newPlanName.trim()) return
     const plan = { id: nanoid(), name: newPlanName.trim(), days: [], createdAt: new Date().toISOString() }
     addWorkoutPlan(plan)
     if (!activePlanId) setActivePlan(plan.id)
-    setNewPlanName('')
-    setShowNewPlan(false)
+    setNewPlanName(''); setShowNewPlan(false); setExpandedPlan(plan.id)
   }
 
   const autoGenerate = () => {
@@ -70,26 +70,29 @@ export default function Workout() {
 
   return (
     <Layout
-      title="Workouts"
+      eyebrow="Train"
+      title="Workouts."
       action={
-        <Button variant="ghost" size="sm" onClick={() => setShowNewPlan(true)}>
-          <Plus size={16} /> New Plan
-        </Button>
+        <button
+          onClick={() => setShowNewPlan(true)}
+          className="w-9 h-9 rounded-md bg-surface-elev border border-surface-line-soft flex items-center justify-center text-ink-2 hover:text-ink"
+        >
+          <Plus size={16} />
+        </button>
       }
     >
-      {/* Coach tip */}
       {todayCheckin && (
-        <CoachCard label={rec.label} message={rec.message} color={rec.color} className="mb-4" />
+        <CoachCard label={rec.label} message={rec.message} color={rec.color} className="mb-5" />
       )}
 
       {workoutPlans.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Dumbbell size={40} className="text-zinc-700 mb-4" />
-          <p className="text-zinc-400 text-sm mb-6">No workout plans yet.</p>
+          <Dumbbell size={36} className="text-ink-4 mb-4" />
+          <p className="text-ink-2 text-[14px] mb-6">No workout plans yet.</p>
           <Button onClick={autoGenerate} className="mb-3 w-full max-w-xs">
             Generate My Plan
           </Button>
-          <Button variant="secondary" className="w-full max-w-xs" onClick={() => setShowNewPlan(true)}>
+          <Button variant="ghost" className="w-full max-w-xs" onClick={() => setShowNewPlan(true)}>
             Build From Scratch
           </Button>
         </div>
@@ -99,6 +102,7 @@ export default function Workout() {
             <PlanCard
               key={plan.id}
               plan={plan}
+              wUnit={wUnit}
               isActive={plan.id === activePlanId}
               expanded={expandedPlan === plan.id}
               onToggleExpand={() => setExpandedPlan(expandedPlan === plan.id ? null : plan.id)}
@@ -106,7 +110,6 @@ export default function Workout() {
               onDelete={() => deleteWorkoutPlan(plan.id)}
               onLaunch={(idx) => launchSession(plan, idx)}
               onUpdate={(updates) => updateWorkoutPlan(plan.id, updates)}
-              rec={rec}
             />
           ))}
         </div>
@@ -114,17 +117,21 @@ export default function Workout() {
 
       {/* Recent sessions */}
       {sessions.length > 0 && (
-        <div className="mt-6">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Recent Sessions</p>
+        <div className="mt-7">
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Recent Sessions</p>
           <div className="space-y-2">
             {sessions.slice(0, 5).map((s) => (
-              <div key={s.id} className="bg-surface-card rounded-xl px-4 py-3 flex items-center justify-between">
+              <div key={s.id} className="bg-surface-card border border-surface-line-soft rounded-[14px] px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-white">{s.planDayName}</p>
-                  <p className="text-xs text-zinc-500">{s.date} · {s.exercises?.length || 0} exercises</p>
+                  <p className="text-ink text-[14px] font-medium">{s.planDayName}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mt-0.5 tabular-nums">
+                    {s.date} · {s.exercises?.length || 0} exercises
+                  </p>
                 </div>
-                {s.duration && (
-                  <span className="text-xs text-zinc-500">{Math.round(s.duration / 60)}m</span>
+                {s.duration > 0 && (
+                  <span className="font-mono text-[11px] tabular-nums text-ink-2">
+                    {Math.round(s.duration / 60)}m
+                  </span>
                 )}
               </div>
             ))}
@@ -132,20 +139,24 @@ export default function Workout() {
         </div>
       )}
 
-      {/* New plan modal */}
+      {/* New plan sheet */}
       {showNewPlan && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center" onClick={() => setShowNewPlan(false)}>
-          <div className="bg-surface-card w-full max-w-[480px] rounded-t-2xl p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-semibold text-white mb-4">New Workout Plan</h2>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end" onClick={() => setShowNewPlan(false)}>
+          <div className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-6" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent mb-2">New</p>
+            <h2 className="font-display text-[28px] italic text-ink leading-none tracking-display mb-5">Workout plan.</h2>
             <input
               autoFocus
-              className="w-full bg-surface-raised border border-surface-border rounded-xl px-3 py-3 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-brand-500 mb-4"
+              className="w-full bg-surface-elev border border-surface-line-soft rounded-md px-3.5 py-3.5 text-ink text-[15px] placeholder:text-ink-4 focus:outline-none focus:border-accent mb-4"
               placeholder="Plan name (e.g. Push Pull Legs)"
               value={newPlanName}
               onChange={(e) => setNewPlanName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && createPlan()}
             />
-            <Button className="w-full" onClick={createPlan}>Create Plan</Button>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowNewPlan(false)}>Cancel</Button>
+              <Button className="flex-[2]" onClick={createPlan}>Create</Button>
+            </div>
           </div>
         </div>
       )}
@@ -153,7 +164,7 @@ export default function Workout() {
   )
 }
 
-function PlanCard({ plan, isActive, expanded, onToggleExpand, onSetActive, onDelete, onLaunch, onUpdate, rec }) {
+function PlanCard({ plan, wUnit, isActive, expanded, onToggleExpand, onSetActive, onDelete, onLaunch, onUpdate }) {
   const [editingDay, setEditingDay] = useState(null)
   const [newDayName, setNewDayName] = useState('')
   const [showAddDay, setShowAddDay] = useState(false)
@@ -161,52 +172,47 @@ function PlanCard({ plan, isActive, expanded, onToggleExpand, onSetActive, onDel
 
   const addDay = () => {
     if (!addDayName.trim()) return
-    const newDays = [...plan.days, { name: addDayName.trim(), exercises: [] }]
-    onUpdate({ days: newDays })
-    setAddDayName('')
-    setShowAddDay(false)
+    onUpdate({ days: [...plan.days, { name: addDayName.trim(), exercises: [] }] })
+    setAddDayName(''); setShowAddDay(false)
   }
-
-  const deleteDay = (idx) => {
-    onUpdate({ days: plan.days.filter((_, i) => i !== idx) })
-  }
-
+  const deleteDay = (idx) => onUpdate({ days: plan.days.filter((_, i) => i !== idx) })
   const renameDay = (idx) => {
     if (!newDayName.trim()) { setEditingDay(null); return }
-    const days = plan.days.map((d, i) => i === idx ? { ...d, name: newDayName } : d)
-    onUpdate({ days })
+    onUpdate({ days: plan.days.map((d, i) => i === idx ? { ...d, name: newDayName } : d) })
     setEditingDay(null)
   }
 
   return (
-    <div className={`rounded-2xl border transition-colors ${isActive ? 'border-brand-500/40 bg-brand-500/5' : 'border-surface-border bg-surface-card'}`}>
+    <div className={`rounded-[20px] border transition-colors ${isActive ? 'border-accent-line bg-accent-soft' : 'border-surface-line-soft bg-surface-card'}`}>
       <button className="w-full flex items-center justify-between p-4" onClick={onToggleExpand}>
-        <div className="flex items-center gap-3 min-w-0">
-          {isActive && <span className="w-2 h-2 rounded-full bg-brand-400 shrink-0" />}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
           <div className="min-w-0 text-left">
-            <p className="text-sm font-semibold text-white truncate">{plan.name}</p>
-            <p className="text-xs text-zinc-500">{plan.days.length} days</p>
+            <p className="text-ink text-[15px] font-medium truncate">{plan.name}</p>
+            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mt-0.5 tabular-nums">
+              {plan.days.length} days
+            </p>
           </div>
         </div>
-        <ChevronRight size={16} className={`text-zinc-500 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+        <ChevronRight size={16} className={`text-ink-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-surface-border pt-3">
+        <div className="px-4 pb-4 border-t border-surface-line-soft pt-3">
           {!isActive && (
             <Button variant="secondary" size="sm" className="w-full mb-3" onClick={onSetActive}>
-              <Check size={14} /> Set as Active Plan
+              <Check size={14} /> Set Active
             </Button>
           )}
 
           <div className="space-y-2">
             {plan.days.map((day, idx) => (
-              <div key={idx} className="bg-surface-raised rounded-xl p-3">
-                <div className="flex items-center justify-between mb-1">
+              <div key={idx} className="bg-surface-elev border border-surface-line-soft rounded-[12px] p-3">
+                <div className="flex items-center justify-between mb-2">
                   {editingDay === idx ? (
                     <input
                       autoFocus
-                      className="flex-1 bg-transparent text-white text-sm outline-none border-b border-brand-500 mr-2"
+                      className="flex-1 bg-transparent text-ink text-[14px] outline-none border-b border-accent mr-2"
                       value={newDayName}
                       onChange={(e) => setNewDayName(e.target.value)}
                       onBlur={() => renameDay(idx)}
@@ -214,35 +220,36 @@ function PlanCard({ plan, isActive, expanded, onToggleExpand, onSetActive, onDel
                     />
                   ) : (
                     <button
-                      className="text-sm font-medium text-white flex-1 text-left"
+                      className="text-ink text-[14px] font-medium flex-1 text-left truncate"
                       onDoubleClick={() => { setEditingDay(idx); setNewDayName(day.name) }}
                     >
                       {day.name}
                     </button>
                   )}
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditingDay(idx); setNewDayName(day.name) }} className="text-zinc-500 hover:text-white p-1">
+                    <button onClick={() => { setEditingDay(idx); setNewDayName(day.name) }} className="text-ink-3 hover:text-ink p-1.5">
                       <Pencil size={12} />
                     </button>
-                    <button onClick={() => deleteDay(idx)} className="text-zinc-500 hover:text-red-400 p-1">
+                    <button onClick={() => deleteDay(idx)} className="text-ink-3 hover:text-accent p-1.5">
                       <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-zinc-500 mb-2">{day.exercises?.length || 0} exercises</p>
+                <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums mb-2">
+                  {day.exercises?.length || 0} exercises
+                </p>
                 {day.exercises?.slice(0, 3).map((ex, ei) => (
-                  <p key={ei} className="text-xs text-zinc-400 truncate">· {ex.name} — {ex.sets}×{ex.reps}</p>
+                  <p key={ei} className="text-ink-2 text-[12px] truncate">· {ex.name} — {ex.sets}×{ex.reps}{ex.weight ? `  ${ex.weight}${wUnit}` : ''}</p>
                 ))}
                 {(day.exercises?.length || 0) > 3 && (
-                  <p className="text-xs text-zinc-600">+{day.exercises.length - 3} more</p>
+                  <p className="font-mono text-[10px] text-ink-3 mt-1">+{day.exercises.length - 3} more</p>
                 )}
-                <Button
-                  size="sm"
-                  className="w-full mt-2"
+                <button
                   onClick={() => onLaunch(idx)}
+                  className="w-full mt-3 bg-accent text-white rounded-md py-2.5 font-mono text-[11px] uppercase tracking-eyebrow flex items-center justify-center gap-2 active:scale-[0.98]"
                 >
-                  <Play size={13} /> Start Session
-                </Button>
+                  <Play size={12} fill="currentColor" /> Start Session
+                </button>
               </div>
             ))}
           </div>
@@ -251,25 +258,26 @@ function PlanCard({ plan, isActive, expanded, onToggleExpand, onSetActive, onDel
             <div className="mt-2 flex gap-2">
               <input
                 autoFocus
-                className="flex-1 bg-surface-raised border border-surface-border rounded-xl px-3 py-2 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-brand-500"
+                className="flex-1 bg-surface-elev border border-surface-line-soft rounded-md px-3 py-2.5 text-ink text-[14px] placeholder:text-ink-4 focus:outline-none focus:border-accent"
                 placeholder="Day name"
                 value={addDayName}
                 onChange={(e) => setAddDayName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addDay()}
               />
               <Button size="sm" onClick={addDay}>Add</Button>
+              <button onClick={() => setShowAddDay(false)} className="text-ink-3 p-2"><X size={14} /></button>
             </div>
           ) : (
             <button
               onClick={() => setShowAddDay(true)}
-              className="w-full mt-2 py-2 rounded-xl border border-dashed border-surface-border text-zinc-500 text-xs hover:border-brand-500/40 hover:text-brand-400 transition-colors"
+              className="w-full mt-3 py-2.5 rounded-md border border-dashed border-surface-line text-ink-3 font-mono text-[11px] uppercase tracking-eyebrow hover:border-accent-line hover:text-accent transition-colors"
             >
-              + Add Training Day
+              + Add Day
             </button>
           )}
 
-          <Button variant="danger" size="sm" className="w-full mt-3" onClick={onDelete}>
-            <Trash2 size={13} /> Delete Plan
+          <Button variant="ghost" size="sm" className="w-full mt-3 text-accent border-accent-line" onClick={onDelete}>
+            <Trash2 size={12} /> Delete Plan
           </Button>
         </div>
       )}
