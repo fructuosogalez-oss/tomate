@@ -35,6 +35,14 @@ export default function RestTimer({ seconds = 90, next = null, unit = 'lbs', onC
     return () => clearInterval(intervalRef.current)
   }, [running])
 
+  // Auto-close 1.5s after countdown finishes — lets the "GO" beat land,
+  // then dismisses so user can log the next set without tapping Skip.
+  useEffect(() => {
+    if (remaining !== 0) return
+    const t = setTimeout(() => onClose?.(), 1500)
+    return () => clearTimeout(t)
+  }, [remaining, onClose])
+
   const adjust = (delta) => {
     setTotal((t) => Math.max(15, t + delta))
     setRem((r) => Math.max(0, r + delta))
