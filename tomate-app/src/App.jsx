@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import Dashboard    from './pages/Dashboard'
 import Workout      from './pages/Workout'
 import WorkoutLogger from './pages/WorkoutLogger'
+import SessionDetail from './pages/SessionDetail'
 import Body         from './pages/Body'
 import Nutrition    from './pages/Nutrition'
 import Progress     from './pages/Progress'
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/"             element={<Dashboard />} />
         <Route path="/workout"      element={<Workout />} />
         <Route path="/workout/log"  element={<WorkoutLogger />} />
+        <Route path="/workout/session/:id" element={<SessionDetail />} />
         <Route path="/body"         element={<Body />} />
         <Route path="/nutrition"    element={<Nutrition />} />
         <Route path="/progress"     element={<Progress />} />
