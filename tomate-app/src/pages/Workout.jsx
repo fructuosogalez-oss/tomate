@@ -118,23 +118,34 @@ export default function Workout() {
       {/* Recent sessions */}
       {sessions.length > 0 && (
         <div className="mt-7">
-          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Recent Sessions</p>
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">Recent Sessions · Tap to Edit</p>
           <div className="space-y-2">
-            {sessions.slice(0, 5).map((s) => (
-              <div key={s.id} className="bg-surface-card border border-surface-line-soft rounded-[14px] px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-ink text-[14px] font-medium">{s.planDayName}</p>
-                  <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mt-0.5 tabular-nums">
-                    {s.date} · {s.exercises?.length || 0} exercises
-                  </p>
-                </div>
-                {s.duration > 0 && (
-                  <span className="font-mono text-[11px] tabular-nums text-ink-2">
-                    {Math.round(s.duration / 60)}m
-                  </span>
-                )}
-              </div>
-            ))}
+            {sessions.slice(0, 8).map((s) => {
+              const totalSets = (s.exercises || []).reduce((a, ex) => a + (ex.sets?.length || 0), 0)
+              const doneSets  = (s.exercises || []).reduce((a, ex) => a + (ex.sets?.filter((set) => set.done)?.length || 0), 0)
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => navigate(`/workout/session/${s.id}`)}
+                  className="w-full text-left bg-surface-card border border-surface-line-soft rounded-[14px] px-4 py-3 flex items-center justify-between hover:bg-surface-elev active:bg-surface-elev transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-ink text-[14px] font-medium truncate">{s.planDayName}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mt-0.5 tabular-nums">
+                      {s.date} · {s.exercises?.length || 0} ex · {doneSets}/{totalSets} sets
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {s.duration > 0 && (
+                      <span className="font-mono text-[11px] tabular-nums text-ink-2">
+                        {Math.round(s.duration / 60)}m
+                      </span>
+                    )}
+                    <ChevronRight size={14} className="text-ink-3" />
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
