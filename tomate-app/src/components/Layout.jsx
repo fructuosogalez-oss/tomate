@@ -26,7 +26,7 @@ export default function Layout({ children, eyebrow, title, action, hideNav = fal
           </div>
         </header>
       )}
-      <main className="flex-1 px-5 pb-32 page-enter">
+      <main className="flex-1 px-5 page-enter" style={{ paddingBottom: 'calc(7rem + env(safe-area-inset-bottom))' }}>
         {children}
       </main>
       {!hideNav && <BottomNav />}
