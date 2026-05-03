@@ -16,8 +16,8 @@ export default function BottomNav() {
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 flex"
       style={{
         background: 'linear-gradient(180deg, rgba(10,10,11,0) 0%, rgba(10,10,11,1) 30%)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        paddingTop: '14px',
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 18px)',
+        paddingTop: '18px',
       }}
     >
       {tabs.map(({ to, label }) => {
@@ -27,7 +27,7 @@ export default function BottomNav() {
             key={to}
             to={to}
             end={to === '/'}
-            className="flex-1 flex flex-col items-center justify-center pt-2 pb-3 gap-1.5 group"
+            className="flex-1 flex flex-col items-center justify-center py-3 gap-1.5 group"
           >
             <span
               className={`block w-1.5 h-1.5 rounded-full ${isActive ? 'bg-accent' : 'bg-surface-line'}`}
