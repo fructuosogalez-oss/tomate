@@ -309,6 +309,7 @@ export default function Settings() {
 
         {/* Preferences */}
         <div className="bg-surface-card border border-surface-line-soft rounded-[20px] mb-3">
+          <PrefRow label="Body Tracking" value="Weight · Waist · Body Fat" onClick={() => navigate('/body')} />
           <PrefRow label="Units" value={isImperial ? 'lbs · ft/in' : 'kg · cm'} onClick={() => setTab('edit')} />
           <PrefRow label="Voice Coach" value={voiceForm.enabled ? 'On' : 'Off'} accent={voiceForm.enabled} onClick={() => { setTab('edit'); setVoiceOpen(true) }} />
           <PrefRow label="Training Days" value={`${form.trainingDays || 4} days/week`} onClick={() => setTab('edit')} last />
