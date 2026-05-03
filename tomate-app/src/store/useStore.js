@@ -105,11 +105,22 @@ export const useStore = create(
           const meals = [...(day.meals || []), meal]
           const calories = meals.reduce((a, m) => a + (m.calories || 0), 0)
           const protein  = meals.reduce((a, m) => a + (m.protein  || 0), 0)
+          const carbs    = meals.reduce((a, m) => a + (m.carbs    || 0), 0)
+          const fat      = meals.reduce((a, m) => a + (m.fat      || 0), 0)
+          // Track recent foods (dedupe by foodId, keep last 20 used)
+          let recentFoods = s.recentFoods || []
+          if (meal.foodId) {
+            recentFoods = [
+              { foodId: meal.foodId, grams: meal.grams, lastUsed: Date.now() },
+              ...recentFoods.filter((r) => r.foodId !== meal.foodId),
+            ].slice(0, 20)
+          }
           return {
             nutritionLogs: {
               ...s.nutritionLogs,
-              [date]: { ...day, meals, calories, protein },
+              [date]: { ...day, meals, calories, protein, carbs, fat },
             },
+            recentFoods,
           }
         }),
       removeMeal: (date, mealId) =>
@@ -119,14 +130,19 @@ export const useStore = create(
           const meals = day.meals.filter((m) => m.id !== mealId)
           const calories = meals.reduce((a, m) => a + (m.calories || 0), 0)
           const protein  = meals.reduce((a, m) => a + (m.protein  || 0), 0)
+          const carbs    = meals.reduce((a, m) => a + (m.carbs    || 0), 0)
+          const fat      = meals.reduce((a, m) => a + (m.fat      || 0), 0)
           return {
             nutritionLogs: {
               ...s.nutritionLogs,
-              [date]: { ...day, meals, calories, protein },
+              [date]: { ...day, meals, calories, protein, carbs, fat },
             },
           }
         }),
       getTodayNutrition: () => get().nutritionLogs[today()] || { calories: 0, protein: 0, meals: [] },
+
+      // ── Recent foods (for Quick Log autocomplete) ──────────────────────────
+      recentFoods: [],
 
       // ── Active Workout State (in-progress session) ─────────────────────────
       activeWorkout: null,
