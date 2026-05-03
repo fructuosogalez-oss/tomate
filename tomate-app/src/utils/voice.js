@@ -95,6 +95,66 @@ export async function askCoach({ apiKey, messages, system, model = 'claude-haiku
   return { text, raw: data }
 }
 
+// ─── Parse food from voice ──────────────────────────────────────────────────
+// Sends a transcript to Claude and gets back structured food entries with macros.
+export async function parseFoodFromVoice({ apiKey, transcript, language = 'es-MX', model = 'claude-haiku-4-5' }) {
+  const isEs = (language || '').toLowerCase().startsWith('es')
+  const system = `You are a nutrition assistant. The user just SPOKE what they ate.
+Extract each food they mentioned with a realistic portion size and accurate macros.
+
+Rules:
+- For ambiguous portions ("un plato", "una taza", "una rebanada"), use typical adult serving sizes.
+- Use grams for portion. For unit-based foods (egg, banana, tortilla, taco), include the unit count in the "name" or "portion" string AND give grams in "grams".
+- Macros must be REALISTIC for the portion (use standard nutrition values).
+- If multiple foods are mentioned, return them all separately.
+- Default cuisine context is Mexican.
+- Round kcal to whole numbers. Round protein/carbs/fat to one decimal.
+
+Respond ONLY with valid JSON in this exact shape (no commentary, no markdown fences):
+{
+  "foods": [
+    {"name": "<short Spanish name>", "portion": "<e.g. '2 huevos · 100g' or '150g'>", "grams": <number>, "kcal": <number>, "protein": <number>, "carbs": <number>, "fat": <number>}
+  ]
+}
+
+If transcript is unclear or doesn't mention food, return: {"foods": []}`
+
+  const userPrompt = isEs
+    ? `Transcripción: "${transcript}"\n\nDevuelve el JSON con cada comida y sus macros.`
+    : `Transcript: "${transcript}"\n\nReturn the JSON with each food and its macros.`
+
+  const { text } = await askCoach({
+    apiKey,
+    model,
+    system,
+    messages: [{ role: 'user', content: userPrompt }],
+    maxTokens: 800,
+  })
+
+  // Strip markdown fences and grab the JSON object
+  let jsonStr = text.trim()
+  const fence = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  if (fence) jsonStr = fence[1]
+  const brace = jsonStr.match(/\{[\s\S]*\}/)
+  if (brace) jsonStr = brace[0]
+
+  try {
+    const parsed = JSON.parse(jsonStr)
+    const foods = Array.isArray(parsed.foods) ? parsed.foods : []
+    return foods.map((f) => ({
+      name:    String(f.name || 'Unknown').trim(),
+      portion: String(f.portion || '').trim(),
+      grams:   Number(f.grams)   || 0,
+      kcal:    Math.round(Number(f.kcal) || 0),
+      protein: Math.round((Number(f.protein) || 0) * 10) / 10,
+      carbs:   Math.round((Number(f.carbs)   || 0) * 10) / 10,
+      fat:     Math.round((Number(f.fat)     || 0) * 10) / 10,
+    }))
+  } catch {
+    throw new Error('No pude entender la respuesta. Intenta de nuevo.')
+  }
+}
+
 // ─── Coach prompt builder ────────────────────────────────────────────────────
 export function buildCoachSystem({ profile, weightUnit = 'lbs', language = 'es-MX' }) {
   const name = profile?.name || 'compa'

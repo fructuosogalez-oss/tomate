@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Plus, Trash2, Flame, Beef, X, Search, Minus, Clock } from 'lucide-react'
+import { Plus, Trash2, Flame, Beef, X, Search, Minus, Clock, Mic } from 'lucide-react'
 import Layout from '../components/Layout'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import VoiceFoodLog from '../components/VoiceFoodLog'
 import { useStore } from '../store/useStore'
 import { calcTargets } from '../utils/coach'
 import { FOODS, searchFoods, macrosFor } from '../utils/foods'
@@ -12,13 +13,16 @@ const today = () => new Date().toISOString().slice(0, 10)
 const FOOD_BY_ID = Object.fromEntries(FOODS.map((f) => [f.id, f]))
 
 export default function Nutrition() {
-  const { nutritionLogs, addMeal, removeMeal, profile, recentFoods = [] } = useStore()
+  const { nutritionLogs, addMeal, removeMeal, profile, recentFoods = [], voice } = useStore()
   const [selectedDate, setSelectedDate] = useState(today())
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedFood, setSelectedFood] = useState(null)  // food + grams editable
   const [showCustom, setShowCustom] = useState(false)
+  const [showVoice, setShowVoice]   = useState(false)
   const [customForm, setCustomForm] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+
+  const voiceReady = voice?.claudeKey  // mic only needs Claude — TTS confirmation is optional
 
   // Debounce query so the list doesn't flicker on every keystroke
   useEffect(() => {
@@ -68,6 +72,20 @@ export default function Nutrition() {
     })
     setSelectedFood(null)
     setQuery('')
+  }
+
+  const logFoodsFromVoice = (parsed) => {
+    for (const f of parsed) {
+      addMeal(selectedDate, {
+        id: nanoid(),
+        name: f.portion ? `${f.name} · ${f.portion}` : f.name,
+        grams: f.grams,
+        calories: f.kcal,
+        protein:  f.protein,
+        carbs:    f.carbs,
+        fat:      f.fat,
+      })
+    }
   }
 
   const logCustom = () => {
@@ -126,20 +144,42 @@ export default function Nutrition() {
       {/* Quick Log search */}
       <div className="mb-4">
         <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent mb-2">● Quick Log</p>
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="What did you eat? · ¿Qué comiste?"
-            className="w-full bg-surface-elev border border-surface-line-soft rounded-md pl-9 pr-9 py-3.5 text-ink text-[15px] placeholder:text-ink-4 focus:outline-none focus:border-accent"
-          />
-          {query && (
-            <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-ink-3 hover:text-ink">
-              <X size={14} />
-            </button>
-          )}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="What did you eat? · ¿Qué comiste?"
+              className="w-full bg-surface-elev border border-surface-line-soft rounded-md pl-9 pr-9 py-3.5 text-ink text-[15px] placeholder:text-ink-4 focus:outline-none focus:border-accent"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-ink-3 hover:text-ink">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              if (!voiceReady) {
+                alert('Activa Voice Coach en Settings y pega tu Claude API key.')
+                return
+              }
+              setShowVoice(true)
+            }}
+            title="Voice log"
+            className={`shrink-0 w-[52px] rounded-md flex items-center justify-center transition-colors ${
+              voiceReady ? 'bg-accent text-white shadow-[0_8px_20px_-6px_rgba(255,45,45,0.5)] active:scale-95' : 'bg-surface-elev text-ink-3 border border-surface-line-soft'
+            }`}
+          >
+            <Mic size={18} strokeWidth={2.2} />
+          </button>
         </div>
+        {!voiceReady && (
+          <p className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3 mt-2">
+            Mic disabled · configure in Settings → Voice Coach
+          </p>
+        )}
       </div>
 
       {/* Results / recent */}
@@ -206,6 +246,15 @@ export default function Nutrition() {
           onChangeGrams={(g) => setSelectedFood((s) => ({ ...s, grams: g }))}
           onClose={() => setSelectedFood(null)}
           onLog={logFood}
+        />
+      )}
+
+      {/* Voice food log overlay */}
+      {showVoice && (
+        <VoiceFoodLog
+          voice={voice}
+          onLog={logFoodsFromVoice}
+          onClose={() => setShowVoice(false)}
         />
       )}
 
