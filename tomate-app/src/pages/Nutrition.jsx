@@ -8,8 +8,8 @@ import { useStore } from '../store/useStore'
 import { calcTargets } from '../utils/coach'
 import { FOODS, searchFoods, macrosFor } from '../utils/foods'
 
+import { todayLocal as today } from '../utils/date'
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
-const today = () => new Date().toISOString().slice(0, 10)
 const FOOD_BY_ID = Object.fromEntries(FOODS.map((f) => [f.id, f]))
 
 export default function Nutrition() {
@@ -123,23 +123,15 @@ export default function Nutrition() {
         className="w-full bg-surface-elev border border-surface-line-soft rounded-md px-3.5 py-3 text-ink text-[14px] focus:outline-none focus:border-accent mb-4 font-mono tabular-nums"
       />
 
-      {/* Macros card */}
-      <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-5 mb-4">
-        <div className="grid grid-cols-2 gap-5 mb-4">
-          <MacroBar label="Calories" current={calories} target={targets.calories} pct={calPct}  icon={<Flame size={12} className="text-accent" />} />
-          <MacroBar label="Protein"  current={`${protein}g`}  target={`${targets.protein}g`} pct={protPct} icon={<Beef size={12} className="text-accent" />} />
-        </div>
-        <div className="grid grid-cols-2 gap-3 text-[11px] font-mono tabular-nums">
-          <div className="flex justify-between bg-surface-elev rounded-md px-3 py-2">
-            <span className="text-ink-3 uppercase tracking-eyebrow">Carbs</span>
-            <span className="text-ink">{Math.round(carbs)}g</span>
-          </div>
-          <div className="flex justify-between bg-surface-elev rounded-md px-3 py-2">
-            <span className="text-ink-3 uppercase tracking-eyebrow">Fat</span>
-            <span className="text-ink">{Math.round(fat)}g</span>
-          </div>
-        </div>
-      </div>
+      {/* Day Summary — big + clear */}
+      <DaySummary
+        calories={calories}
+        protein={protein}
+        carbs={carbs}
+        fat={fat}
+        targets={targets}
+        mealCount={meals.length}
+      />
 
       {/* Quick Log search */}
       <div className="mb-4">
@@ -420,18 +412,99 @@ function Macro({ label, value, accent }) {
   )
 }
 
-function MacroBar({ label, current, target, pct, icon }) {
+// ─── DaySummary: big readable end-of-day status ────────────────────────────
+function DaySummary({ calories, protein, carbs, fat, targets, mealCount }) {
+  const kcalLeft = Math.max(0, targets.calories - calories)
+  const calPct   = Math.min(100, Math.round((calories / Math.max(1, targets.calories)) * 100))
+  const protPct  = Math.min(100, Math.round((protein  / Math.max(1, targets.protein))  * 100))
+  const proteinLeft = Math.max(0, Math.round(targets.protein - protein))
+
+  // Status string + color
+  let status, statusColor
+  if (calories === 0) {
+    status = 'No meals logged'; statusColor = 'text-ink-3'
+  } else if (calPct >= 95 && calPct <= 110 && protPct >= 90) {
+    status = 'On target — solid day'; statusColor = 'text-good'
+  } else if (calPct >= 110) {
+    status = `${calories - targets.calories} kcal over · ease back`; statusColor = 'text-warn'
+  } else if (protPct < 60) {
+    status = `Protein low · ${proteinLeft}g to go`; statusColor = 'text-warn'
+  } else {
+    status = `${kcalLeft} kcal left · ${proteinLeft}g protein left`; statusColor = 'text-ink-2'
+  }
+
+  // Calories ring math
+  const r = 56
+  const c = 2 * Math.PI * r
+  const offset = c * (1 - Math.min(1, calPct / 100))
+
   return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-2">
-        {icon}
-        <span className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">{label}</span>
+    <div className="bg-surface-card border border-surface-line-soft rounded-[20px] p-5 mb-4">
+      <div className="flex items-center gap-5 mb-5">
+        {/* Big calories ring */}
+        <div className="relative w-[136px] h-[136px] shrink-0">
+          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 136 136">
+            <circle cx="68" cy="68" r={r} fill="none" stroke="#1B1B20" strokeWidth="8" />
+            <circle
+              cx="68" cy="68" r={r} fill="none"
+              stroke="#FF2D2D"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={c}
+              strokeDashoffset={offset}
+              style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="font-mono text-[28px] font-medium tabular-nums text-ink leading-none tracking-display">
+              {calories}
+            </p>
+            <p className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3 mt-1">
+              of {targets.calories}
+            </p>
+          </div>
+        </div>
+
+        {/* Right side: status + protein */}
+        <div className="flex-1 min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-2">Today</p>
+          <p className={`text-[14px] font-medium leading-snug ${statusColor} mb-4`}>
+            {status}
+          </p>
+
+          {/* Protein bar */}
+          <div className="flex items-center gap-1.5 mb-1">
+            <Beef size={11} className="text-accent" />
+            <span className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3 flex-1">Protein</span>
+            <span className="font-mono text-[12px] tabular-nums text-ink">{Math.round(protein)}<span className="text-ink-3 text-[10px] ml-0.5">/{targets.protein}g</span></span>
+          </div>
+          <div className="h-1 bg-surface-line rounded-full overflow-hidden">
+            <div className="h-full bg-accent transition-all" style={{ width: `${protPct}%` }} />
+          </div>
+        </div>
       </div>
-      <p className="font-mono text-[24px] tabular-nums text-ink leading-none">{current}</p>
-      <p className="font-mono text-[10px] tabular-nums text-ink-3 mt-1">/ {target}</p>
-      <div className="h-1 bg-surface-line rounded-full mt-2 overflow-hidden">
-        <div className="h-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+
+      {/* 3-up tiles below: kcal left, carbs, fat */}
+      <div className="grid grid-cols-3 gap-2">
+        <SmallStat label="kcal left"    value={kcalLeft} accent={kcalLeft <= 200} />
+        <SmallStat label="Carbs"        value={`${Math.round(carbs)}g`} />
+        <SmallStat label="Fat"          value={`${Math.round(fat)}g`} />
       </div>
+
+      {mealCount > 0 && (
+        <p className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3 text-center mt-4 tabular-nums">
+          {mealCount} {mealCount === 1 ? 'meal' : 'meals'} logged
+        </p>
+      )}
+    </div>
+  )
+}
+
+function SmallStat({ label, value, accent }) {
+  return (
+    <div className="bg-surface-elev rounded-md px-3 py-2.5 text-center">
+      <p className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3 mb-1">{label}</p>
+      <p className={`font-mono text-[15px] tabular-nums leading-none ${accent ? 'text-accent' : 'text-ink'}`}>{value}</p>
     </div>
   )
 }

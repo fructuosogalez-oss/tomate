@@ -11,8 +11,7 @@ import {
 } from '../utils/coach'
 import { weightUnit } from '../utils/units'
 import { generateDefaultPlan } from '../utils/workoutPlans'
-
-const today = () => new Date().toISOString().slice(0, 10)
+import { todayLocal as today } from '../utils/date'
 const dayShort   = ['SUN','MON','TUE','WED','THU','FRI','SAT']
 const monthShort = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
 

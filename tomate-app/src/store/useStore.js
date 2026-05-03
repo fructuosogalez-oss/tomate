@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { todayLocal } from '../utils/date'
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = todayLocal
 
 export const useStore = create(
   persist(

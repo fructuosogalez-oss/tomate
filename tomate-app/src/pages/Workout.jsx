@@ -8,9 +8,9 @@ import { useStore } from '../store/useStore'
 import { getDailyRecommendation } from '../utils/coach'
 import { generateDefaultPlan } from '../utils/workoutPlans'
 import { weightUnit } from '../utils/units'
+import { todayLocal as today } from '../utils/date'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
-const today = () => new Date().toISOString().slice(0, 10)
 
 export default function Workout() {
   const navigate = useNavigate()
