@@ -6,9 +6,9 @@ import Button from '../components/Button'
 import Input from '../components/Input'
 import { useStore } from '../store/useStore'
 import { weightUnit, isImperial } from '../utils/units'
+import { todayLocal as today } from '../utils/date'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
-const today = () => new Date().toISOString().slice(0, 10)
 
 export default function Body() {
   const { bodyLogs, addBodyLog, deleteBodyLog, profile } = useStore()

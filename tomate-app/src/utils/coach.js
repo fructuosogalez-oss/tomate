@@ -55,9 +55,11 @@ export function calcTargets(profile) {
   return { calories: Math.max(1200, Math.round(calories)), protein }
 }
 
+import { todayLocal } from './date'
+
 // Returns a coach recommendation object based on recent training only
 export function getDailyRecommendation({ profile, lastSessions = [] }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
   const trainedToday = lastSessions.some((s) => s.date === today)
 
   // Count consecutive training days back from today
