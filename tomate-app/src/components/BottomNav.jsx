@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 const tabs = [
   { to: '/',          label: 'Today' },
   { to: '/workout',   label: 'Train' },
+  { to: '/nutrition', label: 'Fuel'  },
   { to: '/progress',  label: 'Stats' },
   { to: '/settings',  label: 'You'   },
 ]
