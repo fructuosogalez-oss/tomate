@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Timer, MoreHorizontal, Mic, ArrowRightLeft, AlertTriangle,
+  Timer, MoreHorizontal, Mic, ArrowRightLeft, SkipForward, RotateCcw,
   Check, X, Minus, Plus, ChevronRight, Dumbbell
 } from 'lucide-react'
 import RestTimer from '../components/RestTimer'
@@ -44,9 +44,9 @@ export default function WorkoutLogger() {
     )
   }
 
-  // Identify the active exercise + active set
+  // Identify the active exercise + active set (skipping any marked skipped)
   const exercises = activeWorkout.exercises
-  const exIdx = exercises.findIndex((ex) => ex.sets.some((s) => !s.done))
+  const exIdx = exercises.findIndex((ex) => !ex.skipped && ex.sets.some((s) => !s.done))
   const safeExIdx = exIdx === -1 ? exercises.length - 1 : exIdx
   const cur = exercises[safeExIdx] || exercises[0]
   const setIdx = cur ? Math.max(0, cur.sets.findIndex((s) => !s.done)) : 0
@@ -131,6 +131,18 @@ export default function WorkoutLogger() {
       // workout complete
       if (navigator.vibrate) navigator.vibrate([30, 60, 30, 60, 80])
     }
+  }
+
+  const skipCurrent = () => {
+    if (!cur) return
+    const next = exercises.map((ex, ei) => ei === safeExIdx ? { ...ex, skipped: true } : ex)
+    updateActiveWorkout({ exercises: next })
+    if (navigator.vibrate) navigator.vibrate(20)
+  }
+
+  const unskip = (i) => {
+    const next = exercises.map((ex, ei) => ei === i ? { ...ex, skipped: false } : ex)
+    updateActiveWorkout({ exercises: next })
   }
 
   const finish = () => {
@@ -282,8 +294,8 @@ export default function WorkoutLogger() {
             {/* Secondary actions */}
             <div className="flex gap-2 mt-3">
               <SecondaryAction icon={<Mic size={14} />} label="Voice" onClick={() => alert('Voice logging is configured in Settings → Voice Coach')} />
+              <SecondaryAction icon={<SkipForward size={14} />} label="Skip" onClick={skipCurrent} />
               <SecondaryAction icon={<ArrowRightLeft size={14} />} label="Swap" onClick={() => alert('Exercise swap coming soon')} />
-              <SecondaryAction icon={<AlertTriangle size={14} />} label="Pain" onClick={() => alert('Log pain — coming soon')} />
             </div>
           </div>
         ) : (
@@ -349,32 +361,76 @@ export default function WorkoutLogger() {
         </div>
       )}
 
-      {/* ── Up next card ─────────────────────────────────────────────── */}
-      {(() => {
-        const nextIdx = exercises.findIndex((ex, i) => i > safeExIdx && ex.sets.some((s) => !s.done))
-        if (nextIdx === -1) return null
-        const nx = exercises[nextIdx]
-        const targetReps = parseInt(String(nx.reps).split('-')[0]) || nx.reps || ''
-        return (
-          <div className="px-5 mt-3 mb-6">
-            <button
-              className="w-full bg-surface-card border border-surface-line-soft rounded-[16px] px-4 py-3.5 flex items-center gap-4 text-left active:bg-surface-elev"
-            >
-              <span className="font-mono text-[11px] tabular-nums text-ink-3 w-7">
-                {String(nextIdx + 1).padStart(2, '0')}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-0.5">Up Next</p>
-                <p className="text-ink text-[16px] font-medium truncate">{nx.name}</p>
-                <p className="font-mono text-[11px] tabular-nums text-ink-3 mt-0.5">
-                  {nx.sets.length} sets · {targetReps} reps
-                </p>
+      {/* ── All exercises (review + skip control) ─────────────────────── */}
+      <div className="px-5 mt-5 mb-6">
+        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-3">All Exercises</p>
+        <div className="bg-surface-card border border-surface-line-soft rounded-[20px] overflow-hidden">
+          {exercises.map((ex, i) => {
+            const ed = ex.sets.filter((s) => s.done).length
+            const total = ex.sets.length
+            const isCurrent  = i === safeExIdx && !ex.skipped
+            const isComplete = total > 0 && ed === total && !ex.skipped
+            const isSkipped  = !!ex.skipped
+            const isUpcoming = !isCurrent && !isComplete && !isSkipped
+
+            const status = isComplete ? '✓' : isSkipped ? 'Skipped' : isCurrent ? 'Active' : 'Upcoming'
+            const statusColor = isComplete ? 'text-good' : isSkipped ? 'text-ink-4' : isCurrent ? 'text-accent' : 'text-ink-3'
+
+            return (
+              <div
+                key={ex.id || i}
+                className={`px-4 py-3 ${i < exercises.length - 1 ? 'border-b border-surface-line-soft' : ''} ${isCurrent ? 'bg-accent-soft' : ''}`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-mono text-[11px] tabular-nums text-ink-3 w-6 shrink-0">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[14px] font-medium truncate ${isSkipped ? 'text-ink-3 line-through' : isUpcoming ? 'text-ink-2' : 'text-ink'}`}>
+                      {ex.name}
+                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mt-0.5 tabular-nums">
+                      {ed}/{total} sets · target {ex.reps || '—'} reps
+                    </p>
+                  </div>
+                  <span className={`font-mono text-[10px] uppercase tracking-eyebrow ${statusColor} shrink-0`}>
+                    {status}
+                  </span>
+                  {isSkipped && (
+                    <button
+                      onClick={() => unskip(i)}
+                      className="text-ink-3 hover:text-ink p-1.5"
+                      title="Undo skip"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Set chips — show what was logged */}
+                <div className="flex flex-wrap gap-1.5 ml-9">
+                  {ex.sets.map((s, si) => (
+                    <span
+                      key={s.id || si}
+                      className={`font-mono text-[11px] tabular-nums px-2 py-1 rounded ${
+                        s.done
+                          ? 'bg-surface-elev text-ink border border-surface-line-soft'
+                          : isSkipped
+                            ? 'bg-transparent text-ink-4 border border-dashed border-surface-line'
+                            : 'bg-transparent text-ink-3 border border-dashed border-surface-line'
+                      }`}
+                    >
+                      {s.done
+                        ? `${s.weight || '—'}${wUnit} × ${s.reps || '—'}`
+                        : `set ${si + 1}`}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <ChevronRight size={16} className="text-ink-3" />
-            </button>
-          </div>
-        )
-      })()}
+            )
+          })}
+        </div>
+      </div>
 
       {/* ── Rest timer overlay ───────────────────────────────────────── */}
       {showTimer && (
