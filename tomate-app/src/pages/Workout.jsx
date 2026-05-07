@@ -4,6 +4,7 @@ import { Plus, ChevronRight, Trash2, Dumbbell, Play, Pencil, Check, X } from 'lu
 import Layout from '../components/Layout'
 import Button from '../components/Button'
 import CoachCard from '../components/CoachCard'
+import ResumeBanner from '../components/ResumeBanner'
 import { useStore } from '../store/useStore'
 import { getDailyRecommendation } from '../utils/coach'
 import { generateDefaultPlan } from '../utils/workoutPlans'
@@ -81,6 +82,8 @@ export default function Workout() {
         </button>
       }
     >
+      <ResumeBanner className="mb-5" />
+
       {todayCheckin && (
         <CoachCard label={rec.label} message={rec.message} color={rec.color} className="mb-5" />
       )}

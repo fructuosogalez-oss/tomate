@@ -373,38 +373,33 @@ export default function WorkoutLogger() {
             const isSkipped  = !!ex.skipped
             const isUpcoming = !isCurrent && !isComplete && !isSkipped
 
-            const status = isComplete ? '✓' : isSkipped ? 'Skipped' : isCurrent ? 'Active' : 'Upcoming'
-            const statusColor = isComplete ? 'text-good' : isSkipped ? 'text-ink-4' : isCurrent ? 'text-accent' : 'text-ink-3'
+            const status = isComplete ? '✓' : isSkipped ? 'Tap to resume' : isCurrent ? 'Active' : 'Upcoming'
+            const statusColor = isComplete ? 'text-good' : isSkipped ? 'text-accent' : isCurrent ? 'text-accent' : 'text-ink-3'
+
+            const Wrapper = isSkipped ? 'button' : 'div'
 
             return (
-              <div
+              <Wrapper
                 key={ex.id || i}
-                className={`px-4 py-3 ${i < exercises.length - 1 ? 'border-b border-surface-line-soft' : ''} ${isCurrent ? 'bg-accent-soft' : ''}`}
+                {...(isSkipped ? { onClick: () => unskip(i), type: 'button' } : {})}
+                className={`w-full text-left px-4 py-3 ${i < exercises.length - 1 ? 'border-b border-surface-line-soft' : ''} ${isCurrent ? 'bg-accent-soft' : ''} ${isSkipped ? 'cursor-pointer hover:bg-surface-elev active:bg-surface-elev' : ''}`}
               >
                 <div className="flex items-center gap-3 mb-2">
                   <span className="font-mono text-[11px] tabular-nums text-ink-3 w-6 shrink-0">
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[14px] font-medium truncate ${isSkipped ? 'text-ink-3 line-through' : isUpcoming ? 'text-ink-2' : 'text-ink'}`}>
+                    <p className={`text-[14px] font-medium truncate ${isSkipped ? 'text-ink-2' : isUpcoming ? 'text-ink-2' : 'text-ink'}`}>
                       {ex.name}
                     </p>
                     <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mt-0.5 tabular-nums">
                       {ed}/{total} sets · target {ex.reps || '—'} reps
                     </p>
                   </div>
-                  <span className={`font-mono text-[10px] uppercase tracking-eyebrow ${statusColor} shrink-0`}>
+                  <span className={`font-mono text-[10px] uppercase tracking-eyebrow ${statusColor} shrink-0 flex items-center gap-1`}>
+                    {isSkipped && <RotateCcw size={10} />}
                     {status}
                   </span>
-                  {isSkipped && (
-                    <button
-                      onClick={() => unskip(i)}
-                      className="text-ink-3 hover:text-ink p-1.5"
-                      title="Undo skip"
-                    >
-                      <RotateCcw size={12} />
-                    </button>
-                  )}
                 </div>
 
                 {/* Set chips — show what was logged */}
@@ -426,7 +421,7 @@ export default function WorkoutLogger() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </Wrapper>
             )
           })}
         </div>
