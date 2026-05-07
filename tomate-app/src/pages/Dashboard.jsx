@@ -4,6 +4,7 @@ import CoachCard from '../components/CoachCard'
 import StatCard from '../components/StatCard'
 import Button from '../components/Button'
 import BottomNav from '../components/BottomNav'
+import ResumeBanner from '../components/ResumeBanner'
 import { useStore } from '../store/useStore'
 import {
   getDailyRecommendation, getMotivationalMessage,
@@ -177,6 +178,9 @@ export default function Dashboard() {
           <span className="w-px bg-surface-line-soft" />
           <Stat3 label="Volume" value={estVolume.value} unit={estVolume.unit} />
         </div>
+
+        {/* Resume in-progress workout */}
+        <ResumeBanner className="mb-3" />
 
         {/* Coach */}
         <CoachCard label={rec.label} message={rec.message} color={rec.color} className="mb-4" />
