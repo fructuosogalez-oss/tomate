@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Plus, Trash2, Flame, Beef, X, Search, Minus, Clock, Mic } from 'lucide-react'
+import { Plus, Trash2, Flame, Beef, X, Search, Minus, Clock, Mic, Sparkles, Loader2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import Button from '../components/Button'
 import Input from '../components/Input'
@@ -7,6 +7,7 @@ import VoiceFoodLog from '../components/VoiceFoodLog'
 import { useStore } from '../store/useStore'
 import { calcTargets } from '../utils/coach'
 import { FOODS, searchFoods, macrosFor } from '../utils/foods'
+import { estimateMacros } from '../utils/voice'
 
 import { todayLocal as today } from '../utils/date'
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
@@ -19,8 +20,12 @@ export default function Nutrition() {
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedFood, setSelectedFood] = useState(null)  // food + grams editable
   const [showCustom, setShowCustom] = useState(false)
+  const [estimating, setEstimating] = useState(false)
+  const [estimateError, setEstimateError] = useState('')
+  const [estimated, setEstimated] = useState(false)
+  const autoRunRef = useRef(false)
   const [showVoice, setShowVoice]   = useState(false)
-  const [customForm, setCustomForm] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+  const [customForm, setCustomForm] = useState({ name: '', portion: '', calories: '', protein: '', carbs: '', fat: '' })
 
   const voiceReady = voice?.claudeKey  // mic only needs Claude — TTS confirmation is optional
 
@@ -90,17 +95,76 @@ export default function Nutrition() {
 
   const logCustom = () => {
     if (!customForm.name.trim()) return
+    const fullName = customForm.portion.trim()
+      ? `${customForm.name.trim()} · ${customForm.portion.trim()}`
+      : customForm.name.trim()
     addMeal(selectedDate, {
       id: nanoid(),
-      name: customForm.name.trim(),
+      name: fullName,
       calories: Number(customForm.calories) || 0,
       protein:  Number(customForm.protein)  || 0,
       carbs:    Number(customForm.carbs)    || 0,
       fat:      Number(customForm.fat)      || 0,
     })
-    setCustomForm({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+    setCustomForm({ name: '', portion: '', calories: '', protein: '', carbs: '', fat: '' })
     setShowCustom(false)
+    setEstimated(false); setEstimateError(''); autoRunRef.current = false
   }
+
+  const closeCustom = () => {
+    setShowCustom(false)
+    setEstimated(false); setEstimateError(''); autoRunRef.current = false
+    setCustomForm({ name: '', portion: '', calories: '', protein: '', carbs: '', fat: '' })
+  }
+
+  const runEstimate = async () => {
+    if (!customForm.name.trim()) return
+    if (!voice?.claudeKey) {
+      setEstimateError('Falta tu Claude API key. Configúrala en Settings → Voice Coach.')
+      return
+    }
+    setEstimating(true)
+    setEstimateError('')
+    try {
+      const result = await estimateMacros({
+        apiKey: voice.claudeKey,
+        name: customForm.name,
+        portion: customForm.portion,
+        language: voice.sttLang || 'es-MX',
+        model: voice.claudeModel,
+      })
+      if (!result) {
+        setEstimateError('No pude estimar. Llena los macros manualmente.')
+      } else {
+        setCustomForm((c) => ({
+          ...c,
+          // Update portion only if user didn't enter one
+          portion:  c.portion || result.portion || '',
+          calories: String(result.kcal),
+          protein:  String(result.protein),
+          carbs:    String(result.carbs),
+          fat:      String(result.fat),
+        }))
+        setEstimated(true)
+      }
+    } catch (e) {
+      setEstimateError(e.message || 'Falló la estimación')
+    } finally {
+      setEstimating(false)
+    }
+  }
+
+  // When the sheet opens with a pre-filled name (from "+ Add «xxx»" in search),
+  // auto-run Claude estimate once.
+  useEffect(() => {
+    if (!showCustom) return
+    if (autoRunRef.current) return
+    if (!customForm.name.trim()) return
+    if (!voice?.claudeKey) return
+    autoRunRef.current = true
+    runEstimate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCustom])
 
   return (
     <Layout
@@ -252,20 +316,74 @@ export default function Nutrition() {
 
       {/* Custom food sheet */}
       {showCustom && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end" onClick={() => setShowCustom(false)}>
-          <div className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-5" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
-            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent mb-2">Custom</p>
-            <h2 className="font-display text-[28px] italic text-ink leading-none tracking-display mb-5">Add meal.</h2>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end" onClick={closeCustom}>
+          <div className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-5 max-h-[90vh] overflow-y-auto" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-mono text-[10px] uppercase tracking-eyebrow text-accent">Custom</p>
+              <button onClick={closeCustom} className="p-2 -mr-2 -mt-1 text-ink-3 hover:text-ink"><X size={18} /></button>
+            </div>
+            <h2 className="font-display text-[28px] italic text-ink leading-none tracking-display mb-1">Add meal.</h2>
+            <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-5">
+              Type what you ate — Claude fills the macros for you.
+            </p>
 
             <div className="space-y-3">
-              <Input label="Name" placeholder="e.g. Mom's lasagna" value={customForm.name} onChange={(e) => setCustomForm((c) => ({ ...c, name: e.target.value }))} />
+              <Input
+                label="Name"
+                placeholder="e.g. lasaña, pollo asado, ensalada cesar"
+                value={customForm.name}
+                onChange={(e) => setCustomForm((c) => ({ ...c, name: e.target.value }))}
+              />
+              <Input
+                label="Portion (optional)"
+                placeholder="1 plato · 200g · 1 rebanada"
+                value={customForm.portion}
+                onChange={(e) => setCustomForm((c) => ({ ...c, portion: e.target.value }))}
+              />
+
+              {/* Estimate button — primary action */}
+              <button
+                onClick={runEstimate}
+                disabled={!customForm.name.trim() || estimating}
+                className="w-full bg-accent text-white py-3.5 rounded-lg font-mono uppercase tracking-eyebrow-2 text-[12px] flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-30 shadow-[0_8px_20px_-6px_rgba(255,45,45,0.5)]"
+              >
+                {estimating ? (
+                  <><Loader2 size={14} className="animate-spin" /> Estimating…</>
+                ) : estimated ? (
+                  <><Sparkles size={14} /> Re-estimate</>
+                ) : (
+                  <><Sparkles size={14} /> Estimate Macros with Claude</>
+                )}
+              </button>
+
+              {estimateError && (
+                <p className="font-mono text-[10px] text-warn text-center bg-warn/10 border border-warn/30 rounded-md p-2">
+                  {estimateError}
+                </p>
+              )}
+
+              {!voice?.claudeKey && (
+                <p className="font-mono text-[10px] text-ink-3 text-center">
+                  Tip: configure Claude in Settings → Voice Coach to skip macro research forever.
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 mt-2 mb-1">
+                <span className="h-px bg-surface-line-soft flex-1" />
+                <span className="font-mono text-[9px] uppercase tracking-eyebrow text-ink-3">{estimated ? 'Estimated · edit if needed' : 'Or fill manually'}</span>
+                <span className="h-px bg-surface-line-soft flex-1" />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Calories · kcal" type="number" inputMode="numeric" placeholder="400" value={customForm.calories} onChange={(e) => setCustomForm((c) => ({ ...c, calories: e.target.value }))} />
                 <Input label="Protein · g" type="number" inputMode="numeric" placeholder="35" value={customForm.protein} onChange={(e) => setCustomForm((c) => ({ ...c, protein: e.target.value }))} />
                 <Input label="Carbs · g"   type="number" inputMode="numeric" placeholder="40" value={customForm.carbs}   onChange={(e) => setCustomForm((c) => ({ ...c, carbs:   e.target.value }))} />
                 <Input label="Fat · g"     type="number" inputMode="numeric" placeholder="15" value={customForm.fat}     onChange={(e) => setCustomForm((c) => ({ ...c, fat:     e.target.value }))} />
               </div>
-              <Button className="w-full" onClick={logCustom} disabled={!customForm.name.trim()}>Add Meal</Button>
+
+              <Button size="lg" className="w-full mt-2" onClick={logCustom} disabled={!customForm.name.trim() || !customForm.calories}>
+                Add Meal
+              </Button>
             </div>
           </div>
         </div>

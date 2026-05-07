@@ -155,6 +155,15 @@ If transcript is unclear or doesn't mention food, return: {"foods": []}`
   }
 }
 
+// ─── Estimate macros for a single typed food ────────────────────────────────
+// Same Claude pipeline as voice — but for a single typed name + optional portion.
+export async function estimateMacros({ apiKey, name, portion = '', language = 'es-MX', model = 'claude-haiku-4-5' }) {
+  const description = [name, portion].filter(Boolean).join(', ')
+  if (!description.trim()) return null
+  const foods = await parseFoodFromVoice({ apiKey, transcript: description, language, model })
+  return foods[0] || null
+}
+
 // ─── Coach prompt builder ────────────────────────────────────────────────────
 export function buildCoachSystem({ profile, weightUnit = 'lbs', language = 'es-MX' }) {
   const name = profile?.name || 'compa'
