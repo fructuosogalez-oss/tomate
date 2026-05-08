@@ -461,9 +461,20 @@ export default function WorkoutLogger() {
               onChange={(e) => setSessionNote(e.target.value)}
             />
             <Button size="lg" className="w-full mb-2" onClick={finish}>Save Session</Button>
-            <Button variant="ghost" size="lg" className="w-full" onClick={() => setShowFinish(false)}>
+            <Button variant="ghost" size="lg" className="w-full mb-3" onClick={() => setShowFinish(false)}>
               Keep Going
             </Button>
+            <button
+              onClick={() => {
+                if (confirm(`Discard this session? ${doneSets} sets won't be saved.`)) {
+                  finishWorkout()
+                  navigate('/workout')
+                }
+              }}
+              className="w-full font-mono text-[11px] uppercase tracking-eyebrow text-ink-3 hover:text-accent py-2"
+            >
+              Discard Session
+            </button>
           </div>
         </div>
       )}
