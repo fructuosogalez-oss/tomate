@@ -88,7 +88,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const {
     profile, sessions, bodyLogs, nutritionLogs,
-    activePlanId, workoutPlans, addWorkoutPlan, setActivePlan,
+    activePlanId, workoutPlans, addWorkoutPlan, setActivePlan, deleteWorkoutPlan,
   } = useStore()
 
   const todayKey = today()
@@ -126,8 +126,11 @@ export default function Dashboard() {
     )
   }
 
-  // Suggest applying user's routine if no plan exists
+  // Apply (or refresh) the user's routine. If a plan named "My Routine"
+  // already exists, replace it so the user always lands on the latest spec.
   const applyMyRoutine = () => {
+    const existing = workoutPlans.filter((p) => p.name === 'My Routine')
+    for (const p of existing) deleteWorkoutPlan(p.id)
     const plan = generateDefaultPlan(profile.goal, profile.trainingDays)
     addWorkoutPlan(plan)
     setActivePlan(plan.id)

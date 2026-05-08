@@ -32,6 +32,9 @@ export function generateDefaultPlan(/* goal, trainingDays */) {
           ex('Romanian Deadlift', 3, '8'),
           ex('Leg Curl',          4, '12'),
           ex('Hip Thrust',        3, '10'),
+          ex('Seated Calf Raise', 4, '15-20', '', 60),
+          ex('Hip Adduction',     3, '12-15', '', 60),
+          ex('Hip Abduction',     3, '12-15', '', 60),
         ],
       },
     ],
@@ -39,8 +42,10 @@ export function generateDefaultPlan(/* goal, trainingDays */) {
   }
 }
 
-function ex(name, sets, reps, weight = '') {
-  return { id: nanoid(), name, sets, reps, weight, notes: '' }
+function ex(name, sets, reps, weight = '', rest) {
+  const e = { id: nanoid(), name, sets, reps, weight, notes: '' }
+  if (rest != null) e.rest = rest
+  return e
 }
 
 export function nanoid() {

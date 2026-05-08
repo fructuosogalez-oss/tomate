@@ -12,7 +12,10 @@ import { weightUnit } from '../utils/units'
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 
 const COMPOUND_RX = /(bench|squat|deadlift|overhead press|press|row)/i
-const restForExercise = (name) => COMPOUND_RX.test(name || '') ? 120 : 90
+const restForExercise = (ex) => {
+  if (ex && ex.rest != null) return Number(ex.rest)
+  return COMPOUND_RX.test(ex?.name || '') ? 120 : 90
+}
 
 export default function WorkoutLogger() {
   const navigate = useNavigate()
@@ -124,7 +127,7 @@ export default function WorkoutLogger() {
         reps:   nextSet.reps   || displayReps,
         setLabel: nextSetLabel,
       })
-      setRestSeconds(restForExercise(updatedEx.name))
+      setRestSeconds(restForExercise(updatedEx))
       setShowTimer(true)
       if (navigator.vibrate) navigator.vibrate(40)
     } else {
