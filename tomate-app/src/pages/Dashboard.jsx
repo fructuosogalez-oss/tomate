@@ -297,8 +297,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Apply my routine — shown if user has any auto-generated plan but wants to reset */}
-        {activePlan && activePlan.name !== 'My Routine' && (
+        {/* Apply / refresh my routine — always available */}
+        {activePlan && (
           <button
             onClick={applyMyRoutine}
             className="w-full bg-surface-card border border-surface-line-soft rounded-[16px] px-4 py-3 flex items-center justify-between mb-5 hover:bg-surface-elev"
@@ -306,8 +306,12 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <RotateCcw size={14} className="text-accent" />
               <div className="text-left">
-                <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-0.5">Reset</p>
-                <p className="text-ink text-[13px]">Apply my routine</p>
+                <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 mb-0.5">
+                  {activePlan.name === 'My Routine' ? 'Refresh' : 'Reset'}
+                </p>
+                <p className="text-ink text-[13px]">
+                  {activePlan.name === 'My Routine' ? 'Pull latest routine spec' : 'Apply my routine'}
+                </p>
               </div>
             </div>
             <ChevronRight size={14} className="text-ink-3" />
