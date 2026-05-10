@@ -2,12 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Timer, MoreHorizontal, Mic, ArrowRightLeft, SkipForward, RotateCcw,
-  Check, X, Minus, Plus, ChevronRight, Dumbbell
+  Check, X, Minus, Plus, ChevronRight, Dumbbell, Info
 } from 'lucide-react'
 import RestTimer from '../components/RestTimer'
 import Button from '../components/Button'
+import ExerciseInfoModal from '../components/ExerciseInfoModal'
 import { useStore } from '../store/useStore'
 import { weightUnit } from '../utils/units'
+import { getLastForExercise, formatShortDate } from '../utils/exerciseHistory'
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 
@@ -19,7 +21,8 @@ const restForExercise = (ex) => {
 
 export default function WorkoutLogger() {
   const navigate = useNavigate()
-  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, profile } = useStore()
+  const { activeWorkout, updateActiveWorkout, finishWorkout, addSession, profile, sessions } = useStore()
+  const [infoFor, setInfoFor] = useState(null)
   const wUnit = weightUnit(profile)
   const [showTimer, setShowTimer] = useState(false)
   const [restSeconds, setRestSeconds] = useState(90)
@@ -247,12 +250,24 @@ export default function WorkoutLogger() {
               </p>
             </div>
 
-            <h2 className="font-display text-[32px] italic text-ink leading-none tracking-display truncate mb-1">
-              {cur.name}
-            </h2>
-            <p className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3 mb-5">
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <h2 className="font-display text-[32px] italic text-ink leading-none tracking-display truncate flex-1 min-w-0">
+                {cur.name}
+              </h2>
+              <button
+                onClick={() => setInfoFor(cur.name)}
+                className="w-9 h-9 rounded-full bg-surface-elev border border-surface-line-soft flex items-center justify-center text-ink-2 hover:text-ink shrink-0"
+                title="How to perform"
+              >
+                <Info size={16} />
+              </button>
+            </div>
+            <p className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3 mb-3">
               {inferCue(cur.name)}
             </p>
+
+            {/* Last time badge */}
+            <LastTimeBadge name={cur.name} sessions={sessions} unit={wUnit} className="mb-4" />
 
             {/* Stepper chips */}
             <div className="grid grid-cols-2 gap-3 mb-5">
@@ -403,6 +418,13 @@ export default function WorkoutLogger() {
                     {isSkipped && <RotateCcw size={10} />}
                     {status}
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setInfoFor(ex.name) }}
+                    className="text-ink-3 hover:text-accent p-1.5 shrink-0"
+                    title="How to perform"
+                  >
+                    <Info size={13} />
+                  </button>
                 </div>
 
                 {/* Set chips — show what was logged */}
@@ -478,11 +500,45 @@ export default function WorkoutLogger() {
           </div>
         </div>
       )}
+
+      {/* Exercise info modal */}
+      {infoFor && (
+        <ExerciseInfoModal exerciseName={infoFor} onClose={() => setInfoFor(null)} />
+      )}
     </div>
   )
 }
 
 // ─── Subcomponents ────────────────────────────────────────────────────────
+function LastTimeBadge({ name, sessions, unit, className = '' }) {
+  const last = getLastForExercise(name, sessions)
+  if (!last) {
+    return (
+      <div className={`bg-surface-elev border border-surface-line-soft rounded-md px-3 py-2 ${className}`}>
+        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums">
+          First time logging this — set the bar
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className={`bg-surface-elev border border-surface-line-soft rounded-md px-3 py-2 ${className}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">Last Time</p>
+        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums">{formatShortDate(last.date)}</p>
+      </div>
+      <p className="font-mono text-[14px] tabular-nums text-ink mt-0.5">
+        <span className="text-accent">{last.weight}</span>
+        <span className="text-ink-3 text-[10px] mx-1">{unit}</span>
+        ×
+        <span className="ml-1.5">{last.reps}</span>
+        <span className="text-ink-3 text-[10px] ml-1">reps</span>
+        <span className="text-ink-4 text-[10px] ml-2">↑ try to beat</span>
+      </p>
+    </div>
+  )
+}
+
 function Stepper({ label, value, onMinus, onPlus, onChange, prev }) {
   return (
     <div className="bg-surface-elev border border-surface-line-soft rounded-[14px] px-3 py-3">
