@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ChevronRight, Trash2, Dumbbell, Play, Pencil, Check, X } from 'lucide-react'
+import { Plus, ChevronRight, Trash2, Dumbbell, Play, Pencil, Check, X, Info } from 'lucide-react'
 import Layout from '../components/Layout'
 import Button from '../components/Button'
 import CoachCard from '../components/CoachCard'
 import ResumeBanner from '../components/ResumeBanner'
+import ExerciseInfoModal from '../components/ExerciseInfoModal'
+import { getLastForExercise, formatShortDate } from '../utils/exerciseHistory'
 import { useStore } from '../store/useStore'
 import { getDailyRecommendation } from '../utils/coach'
 import { generateDefaultPlan } from '../utils/workoutPlans'
@@ -106,6 +108,7 @@ export default function Workout() {
               key={plan.id}
               plan={plan}
               wUnit={wUnit}
+              sessions={sessions}
               isActive={plan.id === activePlanId}
               expanded={expandedPlan === plan.id}
               onToggleExpand={() => setExpandedPlan(expandedPlan === plan.id ? null : plan.id)}
@@ -178,7 +181,8 @@ export default function Workout() {
   )
 }
 
-function PlanCard({ plan, wUnit, isActive, expanded, onToggleExpand, onSetActive, onDelete, onLaunch, onUpdate }) {
+function PlanCard({ plan, wUnit, sessions, isActive, expanded, onToggleExpand, onSetActive, onDelete, onLaunch, onUpdate }) {
+  const [infoFor, setInfoFor] = useState(null)
   const [editingDay, setEditingDay] = useState(null)
   const [newDayName, setNewDayName] = useState('')
   const [showAddDay, setShowAddDay] = useState(false)
@@ -252,12 +256,34 @@ function PlanCard({ plan, wUnit, isActive, expanded, onToggleExpand, onSetActive
                 <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums mb-2">
                   {day.exercises?.length || 0} exercises
                 </p>
-                {day.exercises?.slice(0, 3).map((ex, ei) => (
-                  <p key={ei} className="text-ink-2 text-[12px] truncate">· {ex.name} — {ex.sets}×{ex.reps}{ex.weight ? `  ${ex.weight}${wUnit}` : ''}</p>
-                ))}
-                {(day.exercises?.length || 0) > 3 && (
-                  <p className="font-mono text-[10px] text-ink-3 mt-1">+{day.exercises.length - 3} more</p>
-                )}
+                <div className="space-y-1.5">
+                  {day.exercises?.map((ex, ei) => {
+                    const last = getLastForExercise(ex.name, sessions)
+                    return (
+                      <div
+                        key={ex.id || ei}
+                        className="flex items-center gap-2 bg-surface-card border border-surface-line-soft rounded-md px-2.5 py-2"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-ink text-[13px] font-medium truncate">{ex.name}</p>
+                          <p className="font-mono text-[10px] tabular-nums text-ink-3 mt-0.5">
+                            {ex.sets}×{ex.reps}
+                            {last
+                              ? <span className="text-accent ml-2">· last: {last.weight}{wUnit} × {last.reps} on {formatShortDate(last.date)}</span>
+                              : <span className="text-ink-4 ml-2">· no history</span>}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setInfoFor(ex.name) }}
+                          className="text-ink-3 hover:text-accent p-1.5 shrink-0"
+                          title="How to perform"
+                        >
+                          <Info size={13} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
                 <button
                   onClick={() => onLaunch(idx)}
                   className="w-full mt-3 bg-accent text-white rounded-md py-2.5 font-mono text-[11px] uppercase tracking-eyebrow flex items-center justify-center gap-2 active:scale-[0.98]"
@@ -295,6 +321,8 @@ function PlanCard({ plan, wUnit, isActive, expanded, onToggleExpand, onSetActive
           </Button>
         </div>
       )}
+
+      {infoFor && <ExerciseInfoModal exerciseName={infoFor} onClose={() => setInfoFor(null)} />}
     </div>
   )
 }
