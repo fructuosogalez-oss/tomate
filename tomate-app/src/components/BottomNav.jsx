@@ -13,7 +13,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50 flex"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-30 flex"
       style={{
         background: 'linear-gradient(180deg, rgba(10,10,11,0) 0%, rgba(10,10,11,1) 30%)',
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 18px)',
