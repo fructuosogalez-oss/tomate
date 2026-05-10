@@ -436,7 +436,7 @@ function PortionSheet({ food, onChangeGrams, onClose, onLog }) {
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end" onClick={onClose}>
       <div
-        className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-5"
+        className="bg-surface-raised border-t border-surface-line w-full max-w-[480px] mx-auto rounded-t-[28px] p-5 max-h-[90vh] overflow-y-auto"
         style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
         onClick={(e) => e.stopPropagation()}
       >
