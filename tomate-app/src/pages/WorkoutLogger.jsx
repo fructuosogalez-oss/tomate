@@ -250,21 +250,21 @@ export default function WorkoutLogger() {
               </p>
             </div>
 
-            <div className="flex items-center justify-between gap-3 mb-1">
-              <h2 className="font-display text-[32px] italic text-ink leading-none tracking-display truncate flex-1 min-w-0">
-                {cur.name}
-              </h2>
+            <h2 className="font-display text-[32px] italic text-ink leading-none tracking-display truncate mb-1">
+              {cur.name}
+            </h2>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3">
+                {inferCue(cur.name)}
+              </p>
               <button
                 onClick={() => setInfoFor(cur.name)}
-                className="w-9 h-9 rounded-full bg-surface-elev border border-surface-line-soft flex items-center justify-center text-ink-2 hover:text-ink shrink-0"
-                title="How to perform"
+                className="flex items-center gap-1.5 bg-surface-elev border border-surface-line-soft rounded-pill px-3 py-1.5 text-ink-2 hover:text-accent hover:border-accent-line shrink-0"
               >
-                <Info size={16} />
+                <Info size={12} />
+                <span className="font-mono text-[10px] uppercase tracking-eyebrow">Form & Demo</span>
               </button>
             </div>
-            <p className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3 mb-3">
-              {inferCue(cur.name)}
-            </p>
 
             {/* Last time badge */}
             <LastTimeBadge name={cur.name} sessions={sessions} unit={wUnit} className="mb-4" />
@@ -521,19 +521,28 @@ function LastTimeBadge({ name, sessions, unit, className = '' }) {
       </div>
     )
   }
+  const hasWeight = last.weight > 0
   return (
     <div className={`bg-surface-elev border border-surface-line-soft rounded-md px-3 py-2 ${className}`}>
       <div className="flex items-center justify-between gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">Last Time</p>
-        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3 tabular-nums">{formatShortDate(last.date)}</p>
+        <p className="font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">Última vez · {formatShortDate(last.date)}</p>
+        <span className="font-mono text-[10px] uppercase tracking-eyebrow text-accent">↑ supéralo</span>
       </div>
-      <p className="font-mono text-[14px] tabular-nums text-ink mt-0.5">
-        <span className="text-accent">{last.weight}</span>
-        <span className="text-ink-3 text-[10px] mx-1">{unit}</span>
-        ×
-        <span className="ml-1.5">{last.reps}</span>
-        <span className="text-ink-3 text-[10px] ml-1">reps</span>
-        <span className="text-ink-4 text-[10px] ml-2">↑ try to beat</span>
+      <p className="font-mono text-[16px] tabular-nums text-ink mt-1 leading-none">
+        {hasWeight ? (
+          <>
+            <span className="text-accent font-medium">{last.weight}</span>
+            <span className="text-ink-3 text-[11px] mx-1">{unit}</span>
+            <span className="text-ink-3">×</span>
+            <span className="ml-1.5 font-medium">{last.reps}</span>
+            <span className="text-ink-3 text-[11px] ml-1">reps</span>
+          </>
+        ) : (
+          <>
+            <span className="text-accent font-medium">{last.reps}</span>
+            <span className="text-ink-3 text-[11px] ml-1">reps (sin peso)</span>
+          </>
+        )}
       </p>
     </div>
   )
