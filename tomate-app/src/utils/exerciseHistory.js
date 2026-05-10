@@ -14,15 +14,17 @@ export function getLastForExercise(name, sessions = []) {
   for (const s of sessions) {
     const ex = (s.exercises || []).find((e) => normalize(e.name) === target)
     if (!ex) continue
-    const doneSets = (ex.sets || []).filter((set) => set.done && Number(set.weight))
+    const doneSets = (ex.sets || []).filter((set) => set.done)
     if (!doneSets.length) continue
 
-    // Pick heaviest weight from that session (representative working set)
+    // Pick set with highest weight (or most reps for bodyweight)
     let heaviest = { weight: 0, reps: 0 }
     for (const set of doneSets) {
       const w = Number(set.weight) || 0
       const r = Number(set.reps)   || 0
-      if (w > heaviest.weight) heaviest = { weight: w, reps: r }
+      if (w > heaviest.weight || (w === heaviest.weight && r > heaviest.reps)) {
+        heaviest = { weight: w, reps: r }
+      }
     }
     return {
       weight: heaviest.weight,
